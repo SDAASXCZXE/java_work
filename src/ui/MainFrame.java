@@ -3,7 +3,6 @@ package ui;
 import javax.swing.*;
 import javax.swing.plaf.nimbus.NimbusLookAndFeel;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 
 /**
  * 学生宿舍管理系统主界面
@@ -79,7 +78,7 @@ public class MainFrame extends JFrame {
         if (image != null) return image;
 
         // 创建默认图标
-        BufferedImage defaultIcon = new BufferedImage(32, 32, BufferedImage.TYPE_INT_ARGB);
+        java.awt.image.BufferedImage defaultIcon = new java.awt.image.BufferedImage(32, 32, java.awt.image.BufferedImage.TYPE_INT_ARGB);
         Graphics2D g2d = defaultIcon.createGraphics();
         g2d.setColor(new Color(70, 130, 180));
         g2d.fillRect(0, 0, 32, 32);
@@ -172,20 +171,20 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * 添加功能选项卡
+     * 添加功能选项卡 - 使用文字代替图标
      */
     private void addFunctionTabs() {
-        // 主功能面板
-        tabs.addTab("🏠 系统概览", createOverviewPanel());
-        tabs.addTab("👨‍🎓 学生管理", new StudentPanel());
-        tabs.addTab("🏢 宿舍管理", new RoomPanel());
-        tabs.addTab("🛏️ 床位分配", createBedAssignmentPanel());
-        tabs.addTab("💰 费用管理", createFeeManagementPanel());
-        tabs.addTab("🔧 设备管理", createEquipmentPanel());
-        tabs.addTab("📋 访客登记", createVisitorPanel());
-        tabs.addTab("⚠️ 报修管理", createRepairPanel());
-        tabs.addTab("📊 统计报表", createReportPanel());
-        tabs.addTab("⚙️ 系统设置", createSettingsPanel());
+        // 使用纯文字标题，避免图标显示问题
+        tabs.addTab("系统概览", createOverviewPanel());
+        tabs.addTab("学生管理", new StudentPanel());
+        tabs.addTab("宿舍管理", new RoomPanel());
+        tabs.addTab("床位分配", createBedAssignmentPanel());
+        tabs.addTab("费用管理", createFeeManagementPanel());
+        tabs.addTab("设备管理", createEquipmentPanel());
+        tabs.addTab("访客登记", createVisitorPanel());
+        tabs.addTab("报修管理", createRepairPanel());
+        tabs.addTab("统计报表", createReportPanel());
+        tabs.addTab("系统设置", createSettingsPanel());
     }
 
     /**
@@ -217,7 +216,7 @@ public class MainFrame extends JFrame {
             int selectedIndex = tabs.getSelectedIndex();
             if (selectedIndex != -1) {
                 String tabName = tabs.getTitleAt(selectedIndex);
-                statusBar.updateStatus("当前页面: " + tabName.replaceAll("[^\\w\\s]", ""));
+                statusBar.updateStatus("当前页面: " + tabName);
             }
         });
     }
@@ -265,52 +264,84 @@ public class MainFrame extends JFrame {
         }
     }
 
-    // 以下方法创建其他功能面板（简化版，实际项目中应分别实现）
+    // 以下方法创建其他功能面板（简化版）
     private JPanel createOverviewPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("系统概览 - 显示统计信息和快捷操作", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.setBackground(Color.WHITE);
+
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setBorder(BorderFactory.createEmptyBorder(50, 50, 50, 50));
+
+        // 欢迎标题
+        JLabel titleLabel = new JLabel("欢迎使用学生宿舍管理系统");
+        titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 28));
+        titleLabel.setForeground(new Color(70, 130, 180));
+        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+
+        // 系统信息
+        JTextArea infoArea = new JTextArea();
+        infoArea.setText("系统功能：\n" +
+                "1. 学生信息管理\n" +
+                "2. 宿舍分配管理\n" +
+                "3. 费用缴纳管理\n" +
+                "4. 设备资产管理\n" +
+                "5. 访客登记管理\n" +
+                "6. 报修处理管理\n" +
+                "7. 统计报表分析\n" +
+                "8. 系统设置维护");
+        infoArea.setFont(new Font("微软雅黑", Font.PLAIN, 16));
+        infoArea.setEditable(false);
+        infoArea.setBackground(new Color(240, 245, 250));
+        infoArea.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        content.add(titleLabel);
+        content.add(Box.createVerticalStrut(30));
+        content.add(infoArea);
+
+        panel.add(content, BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createBedAssignmentPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("床位分配管理", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.add(new JLabel("床位分配管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createFeeManagementPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("费用管理 - 水电费、住宿费等", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.add(new JLabel("费用管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createEquipmentPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("设备资产管理", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.add(new JLabel("设备管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createVisitorPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("访客登记管理", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.add(new JLabel("访客登记 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createRepairPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("报修管理", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.add(new JLabel("报修管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createReportPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("统计报表", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.add(new JLabel("统计报表 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
         return panel;
     }
 
     private JPanel createSettingsPanel() {
         JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("系统设置", SwingConstants.CENTER), BorderLayout.CENTER);
+        panel.add(new JLabel("系统设置 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
         return panel;
     }
 
