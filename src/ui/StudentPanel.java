@@ -16,7 +16,7 @@ public class StudentPanel extends JPanel {
 
     public StudentPanel() {
         initUI();
-        loadSampleData();
+        //loadSampleData();
     }
 
     private void initUI() {
@@ -141,7 +141,7 @@ public class StudentPanel extends JPanel {
 
     /**
      * 加载示例数据
-     */
+
     private void loadSampleData() {
         // 示例数据
         Object[][] sampleData = {
@@ -162,7 +162,7 @@ public class StudentPanel extends JPanel {
         updateStudentCount();
     }
 
-    /**
+
      * 处理按钮点击
      */
     private void handleButtonClick(ActionEvent e) {

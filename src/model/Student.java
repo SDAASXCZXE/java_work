@@ -10,9 +10,9 @@ public class Student {
     private String gender;
     private int roomId;
 
-    public Student() {}
+    public Student() {}  //无参构造器
 
-    public Student(int id, String name, String gender, int roomId) {
+    public Student(int id, String name, String gender, int roomId) {  //有参数构造器
         this.id = id;
         this.name = name;
         this.gender = gender;
