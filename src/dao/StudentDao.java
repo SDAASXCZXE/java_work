@@ -9,6 +9,6 @@ import java.util.List;
  */
 public interface StudentDao {
     List<Student> findAll();
-    boolean addStudent(Student s);
+    void addStudent(Student student) throws Exception;
     boolean deleteStudent(int id);
 }

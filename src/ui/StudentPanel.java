@@ -1,14 +1,17 @@
 package ui;
-
-
-
+import java.sql.*;
+import service.*;
+import model.Student;
+import service.impl.StudentServiceImpl;
 import util.DBUtil;
-
+import dao.*;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.sql.*;
+import java.util.Date;
+  // 用于数据库中的日期类型
+
 
 
 /**
@@ -19,8 +22,12 @@ public class StudentPanel extends JPanel {
     private DefaultTableModel tableModel;
     private JTextField searchField;
     private JLabel countLabel; // 添加成员变量
-
+    private JTextField[] fields;  // 用于存储输入的文本框
     public StudentPanel() {
+        fields = new JTextField[8];  // 假设你有 8 个输入框
+        for (int i = 0; i < 8; i++) {
+            fields[i] = new JTextField(15);  // 初始化文本框
+        }
         initUI();
         loadStudentsFromDB();
     }
@@ -137,7 +144,7 @@ public class StudentPanel extends JPanel {
     }
 
     /**
-     * 更新学生总数 - 修复的方法
+     * 更新学生总数
      */
     private void updateStudentCount() {
         if (countLabel != null) {
@@ -216,91 +223,29 @@ public class StudentPanel extends JPanel {
      * 添加学生
      */
     private void addStudent() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "添加学生", true);
-        dialog.setLayout(new BorderLayout());
-        dialog.setSize(400, 500);
-        dialog.setLocationRelativeTo(this);
 
-        // 表单面板
-        JPanel formPanel = new JPanel(new GridLayout(10, 2, 10, 10));
-        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        String[] labels = {"学号:", "姓名:", "性别:", "学院:", "专业:", "年级:", "班级:", "联系电话:", "紧急联系人:", "紧急联系电话:"};
-        JTextField[] fields = new JTextField[labels.length];
-
-        for (int i = 0; i < labels.length; i++) {
-            formPanel.add(new JLabel(labels[i]));
-            fields[i] = new JTextField();
-            formPanel.add(fields[i]);
+        // 假设你已经定义了 student 对象
+        Student student = new Student();
+        // 这里确保你引用的是合适的变量（例如 fields[2] 是姓名输入框）
+        student.setSno(fields[0].getText().trim());  // 获取学号
+        student.setName(fields[1].getText().trim());  // 获取姓名
+        student.setGender(fields[2].getText().trim());  // 获取性别
+        student.setCollege(fields[3].getText().trim());  // 获取学院
+        student.setMajor(fields[4].getText().trim());  // 获取专业
+        student.setGrade(fields[5].getText().trim());  // 获取年级
+        student.setClazz(fields[6].getText().trim());  // 获取班级
+        student.setPhone(fields[7].getText().trim());  // 获取电话
+        student.setInDate(new Date());
+        // 调用业务层添加学生
+        StudentService studentService = new StudentServiceImpl();
+        try {
+            studentService.addStudent(student);
+            JOptionPane.showMessageDialog(this, "学生添加成功！");
+            loadStudentsFromDB();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "添加学生失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
         }
-
-        dialog.add(formPanel, BorderLayout.CENTER);
-
-        // 按钮
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        JButton saveButton = new JButton("保存");
-        JButton cancelButton = new JButton("取消");
-
-        saveButton.addActionListener(e -> {
-
-            //  校验
-            String sno = fields[0].getText().trim();
-            String name = fields[1].getText().trim();
-
-            if (sno.isEmpty() || name.isEmpty()) {
-                JOptionPane.showMessageDialog(dialog, "学号和姓名不能为空！", "错误", JOptionPane.ERROR_MESSAGE);
-                return;
-            }
-
-            //  写入数据库
-            Connection conn = null;
-            PreparedStatement ps = null;
-
-            try {
-                conn = DBUtil.getConnection();
-
-                String sql =
-                        "INSERT INTO student " +
-                                "(sno, name, gender, college, major, grade, class, phone, in_date) " +
-                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-
-                ps = conn.prepareStatement(sql);
-                ps.setString(1, sno);
-                ps.setString(2, name);
-                ps.setString(3, fields[2].getText().trim()); // 性别
-                ps.setString(4, fields[3].getText().trim()); // 学院
-                ps.setString(5, fields[4].getText().trim()); // 专业
-                ps.setString(6, fields[5].getText().trim()); // 年级
-                ps.setString(7, fields[6].getText().trim()); // 班级
-                ps.setString(8, fields[7].getText().trim()); // 电话
-                ps.setDate(9, new java.sql.Date(System.currentTimeMillis()));
-
-                ps.executeUpdate();
-
-                JOptionPane.showMessageDialog(dialog, "学生添加成功！");
-
-                loadStudentsFromDB();
-
-                dialog.dispose();
-
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                JOptionPane.showMessageDialog(dialog, "数据库保存失败！", "错误", JOptionPane.ERROR_MESSAGE);
-            } finally {
-                try { if (ps != null) ps.close(); } catch (Exception ignored) {}
-                DBUtil.close(conn);
-            }
-        });
-
-        cancelButton.addActionListener(e -> dialog.dispose());
-
-        buttonPanel.add(saveButton);
-        buttonPanel.add(cancelButton);
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
-
-        dialog.setVisible(true);
     }
-
 
     /**
      * 编辑学生
