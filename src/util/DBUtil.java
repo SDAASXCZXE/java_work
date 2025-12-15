@@ -10,7 +10,7 @@ import java.sql.DriverManager;
  */
 public class DBUtil {
 
-    private static final String URL = "jdbc:mysql://localhost:3306";
+    private static final String URL = "jdbc:mysql://localhost:3306/my_dorm?useSSL=false&serverTimezone=UTC&characterEncoding=utf8";
     private static final String USER = "root";
     private static final String PASSWORD = "";
 
@@ -21,6 +21,15 @@ public class DBUtil {
         } catch (Exception e) {
             e.printStackTrace();
             return null;
+        }
+    }
+    public static void close(Connection conn) {
+        try {
+            if (conn != null) {
+                conn.close();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }

@@ -1,9 +1,15 @@
 package ui;
 
+
+
+import util.DBUtil;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.sql.*;
+
 
 /**
  * 学生管理面板
@@ -16,7 +22,7 @@ public class StudentPanel extends JPanel {
 
     public StudentPanel() {
         initUI();
-        //loadSampleData();
+        loadStudentsFromDB();
     }
 
     private void initUI() {
@@ -140,31 +146,47 @@ public class StudentPanel extends JPanel {
     }
 
     /**
-     * 加载示例数据
-
-    private void loadSampleData() {
-        // 示例数据
-        Object[][] sampleData = {
-                {"20230001", "张三", "男", "计算机学院", "软件工程", "2023", "1班", "A101", "1号", "13800138001", "2023-09-01"},
-                {"20230002", "李四", "女", "文学院", "汉语言文学", "2023", "2班", "B202", "3号", "13800138002", "2023-09-01"},
-                {"20230003", "王五", "男", "经济学院", "金融学", "2023", "1班", "C303", "2号", "13800138003", "2023-09-01"},
-                {"20230004", "赵六", "女", "法学院", "法学", "2023", "3班", "A102", "4号", "13800138004", "2023-09-01"},
-                {"20230005", "钱七", "男", "医学院", "临床医学", "2023", "2班", "B201", "1号", "13800138005", "2023-09-01"},
-                {"20230006", "孙八", "女", "艺术学院", "音乐表演", "2023", "1班", "C304", "3号", "13800138006", "2023-09-01"},
-                {"20230007", "周九", "男", "工程学院", "土木工程", "2023", "4班", "A103", "2号", "13800138007", "2023-09-01"},
-                {"20230008", "吴十", "女", "管理学院", "工商管理", "2023", "2班", "B203", "4号", "13800138008", "2023-09-01"},
-        };
-
-        for (Object[] row : sampleData) {
-            tableModel.addRow(row);
-        }
-
-        updateStudentCount();
-    }
-
-
-     * 处理按钮点击
+     * 从数据库中加载
      */
+    private void loadStudentsFromDB() {
+        tableModel.setRowCount(0);
+
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = DBUtil.getConnection();
+            stmt = conn.createStatement();
+            rs = stmt.executeQuery("SELECT * FROM student");
+
+            while (rs.next()) {
+                Object[] row = {
+                        rs.getString("sno"),
+                        rs.getString("name"),
+                        rs.getString("gender"),
+                        rs.getString("college"),
+                        rs.getString("major"),
+                        rs.getString("grade"),
+                        rs.getString("class"),
+                        rs.getString("dorm_no"),
+                        rs.getString("bed_no"),
+                        rs.getString("phone"),
+                        rs.getDate("in_date")
+                };
+                tableModel.addRow(row);
+            }
+
+            updateStudentCount();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try { if (rs != null) rs.close(); } catch (Exception ignored) {}
+            try { if (stmt != null) stmt.close(); } catch (Exception ignored) {}
+            DBUtil.close(conn);
+        }
+    }
     private void handleButtonClick(ActionEvent e) {
         String command = ((JButton) e.getSource()).getText();
 
@@ -199,7 +221,7 @@ public class StudentPanel extends JPanel {
         dialog.setSize(400, 500);
         dialog.setLocationRelativeTo(this);
 
-        // 创建表单面板
+        // 表单面板
         JPanel formPanel = new JPanel(new GridLayout(10, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
@@ -214,36 +236,61 @@ public class StudentPanel extends JPanel {
 
         dialog.add(formPanel, BorderLayout.CENTER);
 
-        // 按钮面板
+        // 按钮
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         JButton saveButton = new JButton("保存");
         JButton cancelButton = new JButton("取消");
 
         saveButton.addActionListener(e -> {
-            // 验证必填字段
-            if (fields[0].getText().trim().isEmpty() || fields[1].getText().trim().isEmpty()) {
+
+            // 1️⃣ 校验
+            String sno = fields[0].getText().trim();
+            String name = fields[1].getText().trim();
+
+            if (sno.isEmpty() || name.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "学号和姓名不能为空！", "错误", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // 添加到表格
-            Object[] newRow = {
-                    fields[0].getText().trim(),
-                    fields[1].getText().trim(),
-                    "男", // 默认值
-                    fields[3].getText().trim(),
-                    fields[4].getText().trim(),
-                    fields[5].getText().trim(),
-                    fields[6].getText().trim(),
-                    "", "", // 宿舍号和床位号
-                    fields[7].getText().trim(),
-                    new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date())
-            };
-            tableModel.addRow(newRow);
+            // 2️⃣ 写入数据库
+            Connection conn = null;
+            PreparedStatement ps = null;
 
-            updateStudentCount();
-            JOptionPane.showMessageDialog(dialog, "学生添加成功！");
-            dialog.dispose();
+            try {
+                conn = DBUtil.getConnection();
+
+                String sql =
+                        "INSERT INTO student " +
+                                "(sno, name, gender, college, major, grade, class, phone, in_date) " +
+                                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+                ps = conn.prepareStatement(sql);
+                ps.setString(1, sno);
+                ps.setString(2, name);
+                ps.setString(3, fields[2].getText().trim()); // 性别
+                ps.setString(4, fields[3].getText().trim()); // 学院
+                ps.setString(5, fields[4].getText().trim()); // 专业
+                ps.setString(6, fields[5].getText().trim()); // 年级
+                ps.setString(7, fields[6].getText().trim()); // 班级
+                ps.setString(8, fields[7].getText().trim()); // 电话
+                ps.setDate(9, new java.sql.Date(System.currentTimeMillis()));
+
+                ps.executeUpdate();
+
+                JOptionPane.showMessageDialog(dialog, "学生添加成功！");
+
+                // 3️⃣ 刷新表格（从数据库重新查）
+                loadStudentsFromDB();
+
+                dialog.dispose();
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(dialog, "数据库保存失败！", "错误", JOptionPane.ERROR_MESSAGE);
+            } finally {
+                try { if (ps != null) ps.close(); } catch (Exception ignored) {}
+                DBUtil.close(conn);
+            }
         });
 
         cancelButton.addActionListener(e -> dialog.dispose());
@@ -254,6 +301,7 @@ public class StudentPanel extends JPanel {
 
         dialog.setVisible(true);
     }
+
 
     /**
      * 编辑学生
