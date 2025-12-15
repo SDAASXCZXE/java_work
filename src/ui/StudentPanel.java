@@ -22,12 +22,7 @@ public class StudentPanel extends JPanel {
     private DefaultTableModel tableModel;
     private JTextField searchField;
     private JLabel countLabel; // 添加成员变量
-    private JTextField[] fields;  // 用于存储输入的文本框
     public StudentPanel() {
-        fields = new JTextField[8];  // 假设你有 8 个输入框
-        for (int i = 0; i < 8; i++) {
-            fields[i] = new JTextField(15);  // 初始化文本框
-        }
         initUI();
         loadStudentsFromDB();
     }
@@ -223,30 +218,73 @@ public class StudentPanel extends JPanel {
      * 添加学生
      */
     private void addStudent() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "添加学生", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(400, 500);
+        dialog.setLocationRelativeTo(this);
 
-        // 假设你已经定义了 student 对象
-        Student student = new Student();
-        // 这里确保你引用的是合适的变量（例如 fields[2] 是姓名输入框）
-        student.setSno(fields[0].getText().trim());  // 获取学号
-        student.setName(fields[1].getText().trim());  // 获取姓名
-        student.setGender(fields[2].getText().trim());  // 获取性别
-        student.setCollege(fields[3].getText().trim());  // 获取学院
-        student.setMajor(fields[4].getText().trim());  // 获取专业
-        student.setGrade(fields[5].getText().trim());  // 获取年级
-        student.setClazz(fields[6].getText().trim());  // 获取班级
-        student.setPhone(fields[7].getText().trim());  // 获取电话
-        student.setInDate(new Date());
-        // 调用业务层添加学生
-        StudentService studentService = new StudentServiceImpl();
-        try {
-            studentService.addStudent(student);
-            JOptionPane.showMessageDialog(this, "学生添加成功！");
-            loadStudentsFromDB();
-        } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "添加学生失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+        JPanel formPanel = new JPanel(new GridLayout(11, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        String[] labels = {"学号:", "姓名:", "性别:", "学院:", "专业:", "年级:", "班级:", "联系电话:", "紧急联系人:", "紧急联系电话:"};
+        JTextField[] fields = new JTextField[labels.length];
+
+        for (int i = 0; i < labels.length; i++) {
+            formPanel.add(new JLabel(labels[i]));
+            fields[i] = new JTextField();
+            formPanel.add(fields[i]);
         }
-    }
 
+        dialog.add(formPanel, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton saveButton = new JButton("保存");
+        JButton cancelButton = new JButton("取消");
+
+        // 保存按钮事件监听器 - 放在正确的位置
+        saveButton.addActionListener(e -> {
+            // 验证必填字段
+            if (fields[0].getText().trim().isEmpty() || fields[1].getText().trim().isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "学号和姓名不能为空！", "错误", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 创建学生对象并设置属性
+            Student student = new Student();
+            student.setSno(fields[0].getText().trim());
+            student.setName(fields[1].getText().trim());
+            student.setGender(fields[2].getText().trim());
+            student.setCollege(fields[3].getText().trim());
+            student.setMajor(fields[4].getText().trim());
+            student.setGrade(fields[5].getText().trim());
+            student.setClazz(fields[6].getText().trim());
+            student.setPhone(fields[7].getText().trim());
+            // 注意：紧急联系人相关字段可能需要在Student模型中添加
+            student.setInDate(new Date());
+
+            // 调用业务层添加学生
+            StudentService studentService = new StudentServiceImpl();
+            try {
+                studentService.addStudent(student);
+                JOptionPane.showMessageDialog(dialog, "学生添加成功！");
+                dialog.dispose(); // 关闭对话框
+                loadStudentsFromDB(); // 刷新表格数据
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "添加学生失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        // 取消按钮事件监听器
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        buttonPanel.add(saveButton);
+        buttonPanel.add(cancelButton);
+
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        // 显示对话框
+        dialog.setVisible(true);
+    }
     /**
      * 编辑学生
      */
