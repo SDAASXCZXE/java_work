@@ -8,8 +8,8 @@ import java.awt.*;
  * 学生宿舍管理系统主界面
  */
 public class MainFrame extends JFrame {
-
     private JTabbedPane tabs;
+    private boolean isExiting = false; // 添加退出状态标志
 
     public MainFrame() {
         initLookAndFeel();
@@ -41,7 +41,7 @@ public class MainFrame extends JFrame {
         setSize(1200, 750);
         setMinimumSize(new Dimension(1000, 600));
         setLocationRelativeTo(null);
-        setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE); // 重要：改为不自动关闭
 
         // 创建布局
         setLayout(new BorderLayout());
@@ -82,10 +82,8 @@ public class MainFrame extends JFrame {
         JMenuItem exportItem = new JMenuItem("导出数据");
         JMenuItem exitItem = new JMenuItem("退出");
 
-        // 添加文件菜单功能
-        importItem.addActionListener(e -> importData());
-        exportItem.addActionListener(e -> exportData());
-        exitItem.addActionListener(e -> exitApplication());
+        // 为退出菜单项添加事件
+        exitItem.addActionListener(e -> confirmAndExit());
 
         fileMenu.add(newItem);
         fileMenu.add(openItem);
@@ -173,14 +171,48 @@ public class MainFrame extends JFrame {
      * 设置事件监听器
      */
     private void setupListeners() {
+        // 窗口监听器 - 修复退出逻辑
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
-                exitApplication();
+                if (!isExiting) {
+                    confirmAndExit();
+                }
             }
         });
     }
 
+    /**
+     * 确认并退出系统
+     */
+    private void confirmAndExit() {
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "确定要退出系统吗？",
+                "确认退出",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            isExiting = true;
+
+            // 可以在这里添加保存数据等清理工作
+            System.out.println("正在退出系统...");
+
+            // 延迟退出，确保清理工作完成
+            Timer timer = new Timer(100, new java.awt.event.ActionListener() {
+                @Override
+                public void actionPerformed(java.awt.event.ActionEvent e) {
+                    dispose();
+                    System.exit(0);
+                }
+            });
+            timer.setRepeats(false);
+            timer.start();
+        }
+        // 如果选择"否"，窗口保持打开状态
+    }
     /**
      * 文件菜单功能
      */
@@ -484,14 +516,14 @@ public class MainFrame extends JFrame {
                 "开发团队：宿舍管理系统开发组\n" +
                 "联系电话：138-XXXX-XXXX\n" +
                 "邮箱：support@dorm.com\n\n" +
-                "© 2024 版权所有";
+                "© 2025 版权所有";
 
         JOptionPane.showMessageDialog(this, aboutText, "关于系统", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
      * 主方法
-     */
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {
             try {
@@ -503,5 +535,5 @@ public class MainFrame extends JFrame {
                         JOptionPane.ERROR_MESSAGE);
             }
         });
-    }
+    }*/
 }
