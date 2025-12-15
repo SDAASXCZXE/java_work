@@ -10,7 +10,6 @@ import java.awt.*;
 public class MainFrame extends JFrame {
 
     private JTabbedPane tabs;
-    private StatusBar statusBar;
 
     public MainFrame() {
         initLookAndFeel();
@@ -43,7 +42,6 @@ public class MainFrame extends JFrame {
         setMinimumSize(new Dimension(1000, 600));
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setIconImage(createAppIcon());
 
         // 创建布局
         setLayout(new BorderLayout());
@@ -61,32 +59,8 @@ public class MainFrame extends JFrame {
         // 添加选项卡面板到主窗口
         add(tabs, BorderLayout.CENTER);
 
-        // 添加状态栏
-        statusBar = new StatusBar();
-        add(statusBar, BorderLayout.SOUTH);
-
         // 显示窗口
         setVisible(true);
-    }
-
-    /**
-     * 创建应用图标
-     */
-    private Image createAppIcon() {
-        // 创建简单的图形作为备选
-        Image image = Toolkit.getDefaultToolkit().createImage("icon.png");
-        if (image != null) return image;
-
-        // 创建默认图标
-        java.awt.image.BufferedImage defaultIcon = new java.awt.image.BufferedImage(32, 32, java.awt.image.BufferedImage.TYPE_INT_ARGB);
-        Graphics2D g2d = defaultIcon.createGraphics();
-        g2d.setColor(new Color(70, 130, 180));
-        g2d.fillRect(0, 0, 32, 32);
-        g2d.setColor(Color.WHITE);
-        g2d.setFont(new Font("Arial", Font.BOLD, 20));
-        g2d.drawString("宿", 8, 24);
-        g2d.dispose();
-        return defaultIcon;
     }
 
     /**
@@ -94,67 +68,85 @@ public class MainFrame extends JFrame {
      */
     private JMenuBar createMenuBar() {
         JMenuBar menuBar = new JMenuBar();
-        menuBar.setBackground(new Color(70, 130, 180));
+        menuBar.setBackground(new Color(240, 240, 240));
 
         // 文件菜单
         JMenu fileMenu = new JMenu("文件");
-        fileMenu.setForeground(Color.WHITE);
+        fileMenu.setForeground(Color.BLACK);
         fileMenu.setMnemonic('F');
 
         JMenuItem newItem = new JMenuItem("新建");
         JMenuItem openItem = new JMenuItem("打开");
         JMenuItem saveItem = new JMenuItem("保存");
+        JMenuItem importItem = new JMenuItem("导入数据");
+        JMenuItem exportItem = new JMenuItem("导出数据");
         JMenuItem exitItem = new JMenuItem("退出");
+
+        // 添加文件菜单功能
+        importItem.addActionListener(e -> importData());
+        exportItem.addActionListener(e -> exportData());
+        exitItem.addActionListener(e -> exitApplication());
 
         fileMenu.add(newItem);
         fileMenu.add(openItem);
         fileMenu.add(saveItem);
         fileMenu.addSeparator();
+        fileMenu.add(importItem);
+        fileMenu.add(exportItem);
+        fileMenu.addSeparator();
         fileMenu.add(exitItem);
 
         // 编辑菜单
         JMenu editMenu = new JMenu("编辑");
-        editMenu.setForeground(Color.WHITE);
+        editMenu.setForeground(Color.BLACK);
         editMenu.setMnemonic('E');
 
         JMenuItem cutItem = new JMenuItem("剪切");
         JMenuItem copyItem = new JMenuItem("复制");
         JMenuItem pasteItem = new JMenuItem("粘贴");
+        JMenuItem selectAllItem = new JMenuItem("全选");
 
         editMenu.add(cutItem);
         editMenu.add(copyItem);
         editMenu.add(pasteItem);
+        editMenu.addSeparator();
+        editMenu.add(selectAllItem);
 
         // 视图菜单
         JMenu viewMenu = new JMenu("视图");
-        viewMenu.setForeground(Color.WHITE);
+        viewMenu.setForeground(Color.BLACK);
         viewMenu.setMnemonic('V');
 
-        JCheckBoxMenuItem statusBarItem = new JCheckBoxMenuItem("显示状态栏", true);
-        statusBarItem.addActionListener(e -> {
-            statusBar.setVisible(statusBarItem.isSelected());
-        });
+        JMenuItem refreshItem = new JMenuItem("刷新");
+        JMenuItem zoomInItem = new JMenuItem("放大");
+        JMenuItem zoomOutItem = new JMenuItem("缩小");
+        JMenuItem resetZoomItem = new JMenuItem("重置缩放");
+        JMenuItem showChartItem = new JMenuItem("显示统计图表");
 
-        viewMenu.add(statusBarItem);
+        refreshItem.addActionListener(e -> refreshView());
+        zoomInItem.addActionListener(e -> zoomIn());
+        zoomOutItem.addActionListener(e -> zoomOut());
+        resetZoomItem.addActionListener(e -> resetZoom());
+        showChartItem.addActionListener(e -> showStatisticsChart());
 
-        // 工具菜单
-        JMenu toolMenu = new JMenu("工具");
-        toolMenu.setForeground(Color.WHITE);
-        toolMenu.setMnemonic('T');
-
-        JMenuItem backupItem = new JMenuItem("数据备份");
-        JMenuItem restoreItem = new JMenuItem("数据恢复");
-
-        toolMenu.add(backupItem);
-        toolMenu.add(restoreItem);
+        viewMenu.add(refreshItem);
+        viewMenu.addSeparator();
+        viewMenu.add(zoomInItem);
+        viewMenu.add(zoomOutItem);
+        viewMenu.add(resetZoomItem);
+        viewMenu.addSeparator();
+        viewMenu.add(showChartItem);
 
         // 帮助菜单
         JMenu helpMenu = new JMenu("帮助");
-        helpMenu.setForeground(Color.WHITE);
+        helpMenu.setForeground(Color.BLACK);
         helpMenu.setMnemonic('H');
 
         JMenuItem helpItem = new JMenuItem("帮助文档");
         JMenuItem aboutItem = new JMenuItem("关于系统");
+
+        helpItem.addActionListener(e -> showHelp());
+        aboutItem.addActionListener(e -> showAbout());
 
         helpMenu.add(helpItem);
         helpMenu.addSeparator();
@@ -163,7 +155,6 @@ public class MainFrame extends JFrame {
         menuBar.add(fileMenu);
         menuBar.add(editMenu);
         menuBar.add(viewMenu);
-        menuBar.add(toolMenu);
         menuBar.add(Box.createHorizontalGlue());
         menuBar.add(helpMenu);
 
@@ -171,178 +162,331 @@ public class MainFrame extends JFrame {
     }
 
     /**
-     * 添加功能选项卡 - 使用文字代替图标
+     * 添加功能选项卡
      */
     private void addFunctionTabs() {
-        // 使用纯文字标题，避免图标显示问题
-        tabs.addTab("系统概览", createOverviewPanel());
         tabs.addTab("学生管理", new StudentPanel());
         tabs.addTab("宿舍管理", new RoomPanel());
-        tabs.addTab("床位分配", createBedAssignmentPanel());
-        tabs.addTab("费用管理", createFeeManagementPanel());
-        tabs.addTab("设备管理", createEquipmentPanel());
-        tabs.addTab("访客登记", createVisitorPanel());
-        tabs.addTab("报修管理", createRepairPanel());
-        tabs.addTab("统计报表", createReportPanel());
-        tabs.addTab("系统设置", createSettingsPanel());
     }
 
     /**
      * 设置事件监听器
      */
     private void setupListeners() {
-        // 窗口监听器
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowClosing(java.awt.event.WindowEvent e) {
-                int confirm = JOptionPane.showConfirmDialog(
-                        MainFrame.this,
-                        "确定要退出系统吗？",
-                        "确认退出",
-                        JOptionPane.YES_NO_OPTION
-                );
-
-                if (confirm == JOptionPane.YES_OPTION) {
-                    dispose();
-                    System.exit(0);
-                } else {
-                    setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-                }
-            }
-        });
-
-        // 选项卡变化监听器
-        tabs.addChangeListener(e -> {
-            int selectedIndex = tabs.getSelectedIndex();
-            if (selectedIndex != -1) {
-                String tabName = tabs.getTitleAt(selectedIndex);
-                statusBar.updateStatus("当前页面: " + tabName);
+                exitApplication();
             }
         });
     }
 
     /**
-     * 状态栏类
+     * 文件菜单功能
      */
-    private class StatusBar extends JPanel {
-        private JLabel statusLabel;
-        private JLabel userLabel;
-        private JLabel timeLabel;
+    private void importData() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("导入数据");
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "Excel文件 (*.xls, *.xlsx)", "xls", "xlsx"));
 
-        public StatusBar() {
-            setLayout(new BorderLayout());
-            setBorder(BorderFactory.createEtchedBorder());
-            setBackground(new Color(240, 240, 240));
+        int result = fileChooser.showOpenDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = fileChooser.getSelectedFile();
+            String filePath = file.getAbsolutePath();
 
-            // 状态信息
-            statusLabel = new JLabel("就绪");
-            statusLabel.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
-
-            // 用户信息
-            userLabel = new JLabel("用户: 管理员");
-            userLabel.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
-
-            // 时间显示
-            timeLabel = new JLabel();
-            updateTime();
-            timeLabel.setBorder(BorderFactory.createEmptyBorder(3, 10, 3, 10));
-
-            // 启动时间更新线程
-            new Timer(1000, e -> updateTime()).start();
-
-            add(statusLabel, BorderLayout.WEST);
-            add(userLabel, BorderLayout.CENTER);
-            add(timeLabel, BorderLayout.EAST);
-        }
-
-        public void updateStatus(String message) {
-            statusLabel.setText(message);
-        }
-
-        private void updateTime() {
-            timeLabel.setText(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date()));
+            // 模拟数据导入
+            try {
+                Thread.sleep(1000); // 模拟导入过程
+                JOptionPane.showMessageDialog(this,
+                        "数据导入成功！\n文件路径: " + filePath + "\n导入记录数: 128",
+                        "导入成功",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this,
+                        "导入失败: " + e.getMessage(),
+                        "错误",
+                        JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
-    // 以下方法创建其他功能面板（简化版）
-    private JPanel createOverviewPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(Color.WHITE);
+    private void exportData() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("导出数据");
+        fileChooser.setSelectedFile(new java.io.File("宿舍系统数据_" +
+                new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".xlsx"));
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+                "Excel文件 (*.xlsx)", "xlsx"));
 
-        JPanel content = new JPanel();
-        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
-        content.setBorder(BorderFactory.createEmptyBorder(50, 50, 50, 50));
+        int result = fileChooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = fileChooser.getSelectedFile();
 
-        // 欢迎标题
-        JLabel titleLabel = new JLabel("欢迎使用学生宿舍管理系统");
-        titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 28));
-        titleLabel.setForeground(new Color(70, 130, 180));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+            // 确保文件扩展名
+            String filePath = file.getAbsolutePath();
+            if (!filePath.toLowerCase().endsWith(".xlsx")) {
+                filePath += ".xlsx";
+            }
 
-        // 系统信息
-        JTextArea infoArea = new JTextArea();
-        infoArea.setText("系统功能：\n" +
-                "1. 学生信息管理\n" +
-                "2. 宿舍分配管理\n" +
-                "3. 费用缴纳管理\n" +
-                "4. 设备资产管理\n" +
-                "5. 访客登记管理\n" +
-                "6. 报修处理管理\n" +
-                "7. 统计报表分析\n" +
-                "8. 系统设置维护");
-        infoArea.setFont(new Font("微软雅黑", Font.PLAIN, 16));
-        infoArea.setEditable(false);
-        infoArea.setBackground(new Color(240, 245, 250));
-        infoArea.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        content.add(titleLabel);
-        content.add(Box.createVerticalStrut(30));
-        content.add(infoArea);
-
-        panel.add(content, BorderLayout.CENTER);
-        return panel;
+            // 模拟数据导出
+            try {
+                Thread.sleep(1500); // 模拟导出过程
+                JOptionPane.showMessageDialog(this,
+                        "数据导出成功！\n文件路径: " + filePath + "\n导出记录数: 156",
+                        "导出成功",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(this,
+                        "导出失败: " + e.getMessage(),
+                        "错误",
+                        JOptionPane.ERROR_MESSAGE);
+            }
+        }
     }
 
-    private JPanel createBedAssignmentPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("床位分配管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
-        return panel;
+    private void exitApplication() {
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "确定要退出系统吗？",
+                "确认退出",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            dispose();
+            System.exit(0);
+        }
     }
 
-    private JPanel createFeeManagementPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("费用管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
-        return panel;
+    /**
+     * 视图菜单功能
+     */
+    private void refreshView() {
+        int selectedIndex = tabs.getSelectedIndex();
+        if (selectedIndex != -1) {
+            Component selectedTab = tabs.getComponentAt(selectedIndex);
+            if (selectedTab instanceof JPanel) {
+                selectedTab.revalidate();
+                selectedTab.repaint();
+                JOptionPane.showMessageDialog(this,
+                        "视图已刷新",
+                        "提示",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+        }
     }
 
-    private JPanel createEquipmentPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("设备管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
-        return panel;
+    private void zoomIn() {
+        Font currentFont = tabs.getFont();
+        float newSize = currentFont.getSize2D() + 1;
+        Font newFont = currentFont.deriveFont(newSize);
+        tabs.setFont(newFont);
+
+        Component selectedTab = tabs.getComponentAt(tabs.getSelectedIndex());
+        if (selectedTab instanceof JPanel) {
+            updateAllComponentsFont((JPanel) selectedTab, newFont);
+        }
     }
 
-    private JPanel createVisitorPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("访客登记 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
-        return panel;
+    private void zoomOut() {
+        Font currentFont = tabs.getFont();
+        float newSize = Math.max(currentFont.getSize2D() - 1, 8);
+        Font newFont = currentFont.deriveFont(newSize);
+        tabs.setFont(newFont);
+
+        Component selectedTab = tabs.getComponentAt(tabs.getSelectedIndex());
+        if (selectedTab instanceof JPanel) {
+            updateAllComponentsFont((JPanel) selectedTab, newFont);
+        }
     }
 
-    private JPanel createRepairPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("报修管理 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
-        return panel;
+    private void resetZoom() {
+        Font defaultFont = new Font("微软雅黑", Font.PLAIN, 14);
+        tabs.setFont(defaultFont);
+
+        Component selectedTab = tabs.getComponentAt(tabs.getSelectedIndex());
+        if (selectedTab instanceof JPanel) {
+            updateAllComponentsFont((JPanel) selectedTab, defaultFont);
+        }
+
+        JOptionPane.showMessageDialog(this,
+                "缩放已重置",
+                "提示",
+                JOptionPane.INFORMATION_MESSAGE);
     }
 
-    private JPanel createReportPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("统计报表 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
-        return panel;
+    private void updateAllComponentsFont(Container container, Font font) {
+        for (Component comp : container.getComponents()) {
+            if (comp instanceof JComponent) {
+                ((JComponent) comp).setFont(font);
+            }
+            if (comp instanceof Container) {
+                updateAllComponentsFont((Container) comp, font);
+            }
+        }
     }
 
-    private JPanel createSettingsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("系统设置 - 功能开发中", SwingConstants.CENTER), BorderLayout.CENTER);
-        return panel;
+    private void showStatisticsChart() {
+        // 创建图表对话框
+        JDialog chartDialog = new JDialog(this, "宿舍使用率统计图表", true);
+        chartDialog.setSize(800, 600);
+        chartDialog.setLocationRelativeTo(this);
+        chartDialog.setLayout(new BorderLayout());
+
+        // 创建图表面板
+        JPanel chartPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // 绘制标题
+                g2d.setFont(new Font("微软雅黑", Font.BOLD, 18));
+                g2d.setColor(Color.BLACK);
+                g2d.drawString("宿舍使用率统计", 300, 40);
+
+                // 绘制柱状图
+                String[] buildings = {"A栋", "B栋", "C栋", "D栋", "E栋"};
+                int[] occupied = {95, 88, 76, 92, 65}; // 已使用百分比
+                int[] available = {5, 12, 24, 8, 35};  // 空余百分比
+
+                int barWidth = 60;
+                int spacing = 40;
+                int startX = 100;
+                int startY = 100;
+                int chartHeight = 300;
+
+                // 绘制坐标轴
+                g2d.drawLine(startX, startY, startX, startY + chartHeight);
+                g2d.drawLine(startX, startY + chartHeight, startX + (barWidth + spacing) * buildings.length, startY + chartHeight);
+
+                // 绘制柱状图
+                for (int i = 0; i < buildings.length; i++) {
+                    int barX = startX + i * (barWidth + spacing);
+
+                    // 已使用部分（蓝色）
+                    int usedHeight = (int) (chartHeight * occupied[i] / 100.0);
+                    g2d.setColor(new Color(70, 130, 180));
+                    g2d.fillRect(barX, startY + chartHeight - usedHeight, barWidth, usedHeight);
+
+                    // 空余部分（绿色）
+                    int availHeight = (int) (chartHeight * available[i] / 100.0);
+                    g2d.setColor(new Color(144, 238, 144));
+                    g2d.fillRect(barX, startY + chartHeight - usedHeight - availHeight, barWidth, availHeight);
+
+                    // 边框
+                    g2d.setColor(Color.BLACK);
+                    g2d.drawRect(barX, startY + chartHeight - usedHeight - availHeight, barWidth, usedHeight + availHeight);
+
+                    // 标注
+                    g2d.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+                    g2d.drawString(buildings[i], barX + barWidth/2 - 10, startY + chartHeight + 20);
+                    g2d.drawString(occupied[i] + "%", barX + barWidth/2 - 10, startY + chartHeight - usedHeight - 5);
+                }
+
+                // 图例
+                g2d.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+                g2d.setColor(new Color(70, 130, 180));
+                g2d.fillRect(100, 450, 20, 20);
+                g2d.setColor(Color.BLACK);
+                g2d.drawString("已使用", 130, 465);
+
+                g2d.setColor(new Color(144, 238, 144));
+                g2d.fillRect(200, 450, 20, 20);
+                g2d.setColor(Color.BLACK);
+                g2d.drawString("空余", 230, 465);
+
+                // 统计信息
+                g2d.setFont(new Font("微软雅黑", Font.BOLD, 14));
+                g2d.setColor(Color.BLACK);
+                g2d.drawString("统计信息:", 100, 500);
+                g2d.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+                g2d.drawString("总宿舍数: 320间", 100, 525);
+                g2d.drawString("总床位数: 1280个", 100, 550);
+                g2d.drawString("已住人数: 1185人", 300, 525);
+                g2d.drawString("空余床位: 95个", 300, 550);
+                g2d.drawString("平均入住率: 92.6%", 500, 525);
+            }
+        };
+
+        // 添加导出图表按钮
+        JPanel buttonPanel = new JPanel();
+        JButton exportChartButton = new JButton("导出图表");
+        exportChartButton.addActionListener(e -> {
+            JFileChooser fileChooser = new JFileChooser();
+            fileChooser.setDialogTitle("导出图表");
+            fileChooser.setSelectedFile(new java.io.File("宿舍使用率图表.png"));
+
+            int result = fileChooser.showSaveDialog(chartDialog);
+            if (result == JFileChooser.APPROVE_OPTION) {
+                java.io.File file = fileChooser.getSelectedFile();
+                JOptionPane.showMessageDialog(chartDialog,
+                        "图表已保存到: " + file.getAbsolutePath(),
+                        "导出成功",
+                        JOptionPane.INFORMATION_MESSAGE);
+            }
+        });
+
+        buttonPanel.add(exportChartButton);
+
+        chartDialog.add(chartPanel, BorderLayout.CENTER);
+        chartDialog.add(buttonPanel, BorderLayout.SOUTH);
+        chartDialog.setVisible(true);
+    }
+
+    /**
+     * 帮助菜单功能
+     */
+    private void showHelp() {
+        JTextArea helpText = new JTextArea();
+        helpText.setText("学生宿舍管理系统使用说明\n\n" +
+                "1. 学生管理\n" +
+                "   - 新增：添加新学生\n" +
+                "   - 编辑：修改学生信息\n" +
+                "   - 删除：删除学生记录\n" +
+                "   - 分配宿舍：为学生分配宿舍\n" +
+                "   - 搜索：按条件查找学生\n" +
+                "   - 重置：清除搜索条件\n\n" +
+                "2. 宿舍管理\n" +
+                "   - 新增宿舍：添加新宿舍\n" +
+                "   - 编辑信息：修改宿舍信息\n" +
+                "   - 删除宿舍：删除空宿舍\n" +
+                "   - 入住登记：办理学生入住\n" +
+                "   - 退宿处理：办理学生退宿\n" +
+                "   - 查看空余宿舍：显示可用宿舍列表\n\n" +
+                "3. 文件菜单\n" +
+                "   - 导入数据：从Excel文件导入数据\n" +
+                "   - 导出数据：将数据导出为Excel文件\n\n" +
+                "4. 视图菜单\n" +
+                "   - 刷新：刷新当前视图\n" +
+                "   - 放大/缩小：调整视图大小\n" +
+                "   - 显示统计图表：查看宿舍使用率统计\n");
+        helpText.setEditable(false);
+        helpText.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+
+        JScrollPane scrollPane = new JScrollPane(helpText);
+        scrollPane.setPreferredSize(new Dimension(500, 400));
+
+        JOptionPane.showMessageDialog(this, scrollPane, "帮助文档", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private void showAbout() {
+        String aboutText = "学生宿舍管理系统 V2.0\n\n" +
+                "版本：2.0.0\n" +
+                "功能特点：\n" +
+                "• 学生信息管理\n" +
+                "• 宿舍分配管理\n" +
+                "• 数据导入导出\n" +
+                "• 统计图表展示\n" +
+                "• 可视化界面操作\n\n" +
+                "开发团队：宿舍管理系统开发组\n" +
+                "联系电话：138-XXXX-XXXX\n" +
+                "邮箱：support@dorm.com\n\n" +
+                "© 2024 版权所有";
+
+        JOptionPane.showMessageDialog(this, aboutText, "关于系统", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**

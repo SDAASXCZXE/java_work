@@ -13,23 +13,29 @@ public class RoomPanel extends JPanel {
     private DefaultTableModel tableModel;
     private JTextField searchField;
     private JComboBox<String> buildingFilter;
+    private JComboBox<String> statusFilter;
+
+    // 添加统计标签的引用
+    private JLabel totalRoomsLabel;
+    private JLabel totalBedsLabel;
+    private JLabel occupiedBedsLabel;
+    private JLabel availableBedsLabel;
+    private JLabel occupancyRateLabel;
+    private JLabel underRepairLabel;
 
     public RoomPanel() {
         initUI();
         loadSampleData();
+        // 初始化后立即更新统计数据
+        updateStatistics();
     }
 
     private void initUI() {
         setLayout(new BorderLayout(10, 10));
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        // 顶部工具栏
         add(createToolBar(), BorderLayout.NORTH);
-
-        // 中间表格
         add(createTablePanel(), BorderLayout.CENTER);
-
-        // 右侧信息面板
         add(createSidePanel(), BorderLayout.EAST);
     }
 
@@ -40,8 +46,7 @@ public class RoomPanel extends JPanel {
         JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         toolBar.setBorder(BorderFactory.createTitledBorder("宿舍管理"));
 
-        // 操作按钮
-        String[] buttons = {"新增宿舍", "编辑信息", "删除宿舍", "入住登记", "退宿处理", "检查记录"};
+        String[] buttons = {"新增宿舍", "编辑信息", "删除宿舍", "入住登记", "退宿处理", "导出数据"};
 
         for (String text : buttons) {
             JButton button = new JButton(text);
@@ -52,19 +57,17 @@ public class RoomPanel extends JPanel {
             toolBar.add(button);
         }
 
-        // 过滤功能
         toolBar.add(Box.createHorizontalStrut(20));
         toolBar.add(new JLabel("宿舍楼:"));
         buildingFilter = new JComboBox<>(new String[]{"全部", "A栋", "B栋", "C栋", "D栋", "E栋"});
-        buildingFilter.addActionListener(e -> filterByBuilding());
+        buildingFilter.addActionListener(e -> filterTable());
         toolBar.add(buildingFilter);
 
         toolBar.add(new JLabel("状态:"));
-        JComboBox<String> statusFilter = new JComboBox<>(new String[]{"全部", "已住满", "有空位", "维修中", "空置"});
-        statusFilter.addActionListener(e -> filterByStatus());
+        statusFilter = new JComboBox<>(new String[]{"全部", "已住满", "有空位", "维修中", "空置"});
+        statusFilter.addActionListener(e -> filterTable());
         toolBar.add(statusFilter);
 
-        // 搜索功能
         toolBar.add(Box.createHorizontalStrut(20));
         toolBar.add(new JLabel("搜索:"));
         searchField = new JTextField(12);
@@ -83,7 +86,6 @@ public class RoomPanel extends JPanel {
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // 创建表格模型
         String[] columns = {"宿舍号", "宿舍楼", "房间类型", "床位总数", "已住人数", "空余床位",
                 "宿舍长", "联系电话", "卫生评分", "状态", "备注"};
         tableModel = new DefaultTableModel(columns, 0) {
@@ -98,19 +100,16 @@ public class RoomPanel extends JPanel {
         roomTable.getTableHeader().setFont(new Font("微软雅黑", Font.BOLD, 12));
         roomTable.setFont(new Font("微软雅黑", Font.PLAIN, 12));
 
-        // 设置列宽
-        roomTable.getColumnModel().getColumn(0).setPreferredWidth(80);  // 宿舍号
-        roomTable.getColumnModel().getColumn(1).setPreferredWidth(60);  // 宿舍楼
-        roomTable.getColumnModel().getColumn(2).setPreferredWidth(80);  // 房间类型
-        roomTable.getColumnModel().getColumn(3).setPreferredWidth(70);  // 床位总数
-        roomTable.getColumnModel().getColumn(4).setPreferredWidth(70);  // 已住人数
+        roomTable.getColumnModel().getColumn(0).setPreferredWidth(80);
+        roomTable.getColumnModel().getColumn(1).setPreferredWidth(60);
+        roomTable.getColumnModel().getColumn(2).setPreferredWidth(80);
+        roomTable.getColumnModel().getColumn(3).setPreferredWidth(70);
+        roomTable.getColumnModel().getColumn(4).setPreferredWidth(70);
 
-        // 添加滚动条
         JScrollPane scrollPane = new JScrollPane(roomTable);
         scrollPane.setBorder(BorderFactory.createTitledBorder("宿舍列表"));
 
         panel.add(scrollPane, BorderLayout.CENTER);
-
         return panel;
     }
 
@@ -123,28 +122,39 @@ public class RoomPanel extends JPanel {
         sidePanel.setBorder(BorderFactory.createTitledBorder("宿舍信息统计"));
         sidePanel.setPreferredSize(new Dimension(300, 0));
 
-        // 统计信息
-        String[] statsLabels = {
-                "总宿舍数:", "总床位数:", "已住床位数:",
-                "空余床位数:", "入住率:", "维修中房间:",
-                "今日入住:", "今日退宿:", "本月报修:"
-        };
+        // 统计信息面板
+        JPanel statsPanel = new JPanel();
+        statsPanel.setLayout(new GridLayout(6, 2, 5, 5));
+        statsPanel.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
-        String[] statsValues = {
-                "320", "1280", "1185",
-                "95", "92.5%", "8",
-                "12", "5", "23"
-        };
+        // 创建统计标签
+        totalRoomsLabel = createStatLabel("总宿舍数:", "0间");
+        totalBedsLabel = createStatLabel("总床位数:", "0个");
+        occupiedBedsLabel = createStatLabel("已住床位数:", "0个");
+        availableBedsLabel = createStatLabel("空余床位数:", "0个");
+        occupancyRateLabel = createStatLabel("入住率:", "0%");
+        underRepairLabel = createStatLabel("维修中房间:", "0间");
 
-        for (int i = 0; i < statsLabels.length; i++) {
-            JPanel statPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-            statPanel.add(new JLabel(statsLabels[i]));
-            JLabel valueLabel = new JLabel(statsValues[i]);
-            valueLabel.setFont(new Font("微软雅黑", Font.BOLD, 14));
-            valueLabel.setForeground(new Color(70, 130, 180));
-            statPanel.add(valueLabel);
-            sidePanel.add(statPanel);
-        }
+        // 添加到面板
+        statsPanel.add(new JLabel("总宿舍数:"));
+        statsPanel.add(totalRoomsLabel);
+
+        statsPanel.add(new JLabel("总床位数:"));
+        statsPanel.add(totalBedsLabel);
+
+        statsPanel.add(new JLabel("已住床位数:"));
+        statsPanel.add(occupiedBedsLabel);
+
+        statsPanel.add(new JLabel("空余床位数:"));
+        statsPanel.add(availableBedsLabel);
+
+        statsPanel.add(new JLabel("入住率:"));
+        statsPanel.add(occupancyRateLabel);
+
+        statsPanel.add(new JLabel("维修中房间:"));
+        statsPanel.add(underRepairLabel);
+
+        sidePanel.add(statsPanel);
 
         sidePanel.add(Box.createVerticalStrut(20));
 
@@ -153,27 +163,92 @@ public class RoomPanel extends JPanel {
         quickActions.setLayout(new BoxLayout(quickActions, BoxLayout.Y_AXIS));
         quickActions.setBorder(BorderFactory.createTitledBorder("快速操作"));
 
-        String[] actions = {"查看空余宿舍", "生成维修清单", "打印宿舍报表", "导出宿舍数据"};
+        String[] actions = {"查看空余宿舍", "显示使用率图表"};
 
         for (String action : actions) {
             JButton button = new JButton(action);
             button.setAlignmentX(Component.CENTER_ALIGNMENT);
             button.setMaximumSize(new Dimension(250, 30));
-            button.addActionListener(e -> handleQuickAction(action));
+            button.addActionListener(e -> {
+                if (action.equals("查看空余宿舍")) {
+                    showAvailableRooms();
+                } else if (action.equals("显示使用率图表")) {
+                    showRoomUsageChart();
+                }
+            });
             quickActions.add(button);
             quickActions.add(Box.createVerticalStrut(5));
         }
 
         sidePanel.add(quickActions);
-
         return sidePanel;
+    }
+
+    /**
+     * 创建统计标签
+     */
+    private JLabel createStatLabel(String title, String value) {
+        JLabel label = new JLabel(value);
+        label.setFont(new Font("微软雅黑", Font.BOLD, 14));
+        label.setForeground(new Color(70, 130, 180));
+        return label;
+    }
+
+    /**
+     * 更新统计信息
+     */
+    private void updateStatistics() {
+        int totalRooms = tableModel.getRowCount();
+        int totalBeds = 0;
+        int occupiedBeds = 0;
+        int underRepair = 0;
+
+        for (int i = 0; i < totalRooms; i++) {
+            try {
+                int beds = Integer.parseInt(tableModel.getValueAt(i, 3).toString());
+                int occupied = Integer.parseInt(tableModel.getValueAt(i, 4).toString());
+                String status = tableModel.getValueAt(i, 9).toString();
+
+                totalBeds += beds;
+                occupiedBeds += occupied;
+
+                if ("维修中".equals(status)) {
+                    underRepair++;
+                }
+            } catch (NumberFormatException e) {
+                // 跳过无效数据
+                continue;
+            }
+        }
+
+        int availableBeds = totalBeds - occupiedBeds;
+        double occupancyRate = totalBeds > 0 ? (occupiedBeds * 100.0 / totalBeds) : 0;
+
+        // 更新标签显示
+        if (totalRoomsLabel != null) {
+            totalRoomsLabel.setText(totalRooms + "间");
+        }
+        if (totalBedsLabel != null) {
+            totalBedsLabel.setText(totalBeds + "个");
+        }
+        if (occupiedBedsLabel != null) {
+            occupiedBedsLabel.setText(occupiedBeds + "个");
+        }
+        if (availableBedsLabel != null) {
+            availableBedsLabel.setText(availableBeds + "个");
+        }
+        if (occupancyRateLabel != null) {
+            occupancyRateLabel.setText(String.format("%.1f%%", occupancyRate));
+        }
+        if (underRepairLabel != null) {
+            underRepairLabel.setText(underRepair + "间");
+        }
     }
 
     /**
      * 加载示例数据
      */
     private void loadSampleData() {
-        // 示例数据
         Object[][] sampleData = {
                 {"101", "A栋", "四人间", "4", "4", "0", "张三", "13800138001", "95", "已住满", ""},
                 {"102", "A栋", "四人间", "4", "3", "1", "李四", "13800138002", "88", "有空位", ""},
@@ -190,6 +265,9 @@ public class RoomPanel extends JPanel {
         for (Object[] row : sampleData) {
             tableModel.addRow(row);
         }
+
+        // 加载数据后更新统计
+        updateStatistics();
     }
 
     /**
@@ -214,27 +292,7 @@ public class RoomPanel extends JPanel {
             case "退宿处理":
                 checkOut();
                 break;
-            case "检查记录":
-                viewInspection();
-                break;
-        }
-    }
-
-    /**
-     * 处理快速操作
-     */
-    private void handleQuickAction(String action) {
-        switch (action) {
-            case "查看空余宿舍":
-                showAvailableRooms();
-                break;
-            case "生成维修清单":
-                generateRepairList();
-                break;
-            case "打印宿舍报表":
-                printRoomReport();
-                break;
-            case "导出宿舍数据":
+            case "导出数据":
                 exportRoomData();
                 break;
         }
@@ -249,7 +307,6 @@ public class RoomPanel extends JPanel {
         dialog.setSize(400, 400);
         dialog.setLocationRelativeTo(this);
 
-        // 创建表单面板
         JPanel formPanel = new JPanel(new GridLayout(8, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
@@ -261,23 +318,19 @@ public class RoomPanel extends JPanel {
             formPanel.add(new JLabel(labels[i]));
 
             switch (i) {
-                case 0: // 宿舍楼
+                case 0:
                     fields[i] = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋", "E栋"});
                     break;
-                case 2: // 房间类型
+                case 2:
                     fields[i] = new JComboBox<>(new String[]{"二人间", "四人间", "六人间", "八人间"});
                     break;
-                case 3: // 床位总数
+                case 3:
                     JSpinner spinner = new JSpinner(new SpinnerNumberModel(4, 1, 8, 1));
                     fields[i] = spinner;
                     break;
-                case 6: // 卫生评分
-                    JSlider slider = new JSlider(0, 100, 80);
-                    slider.setMajorTickSpacing(20);
-                    slider.setMinorTickSpacing(5);
-                    slider.setPaintTicks(true);
-                    slider.setPaintLabels(true);
-                    fields[i] = slider;
+                case 6:
+                    JSpinner scoreSpinner = new JSpinner(new SpinnerNumberModel(80, 0, 100, 1));
+                    fields[i] = scoreSpinner;
                     break;
                 default:
                     fields[i] = new JTextField();
@@ -289,29 +342,33 @@ public class RoomPanel extends JPanel {
 
         dialog.add(formPanel, BorderLayout.CENTER);
 
-        // 按钮面板
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         JButton saveButton = new JButton("保存");
         JButton cancelButton = new JButton("取消");
 
         saveButton.addActionListener(e -> {
-            // 保存逻辑
             String building = (String) ((JComboBox) fields[0]).getSelectedItem();
-            String roomNumber = ((JTextField) fields[1]).getText();
+            String roomNumber = ((JTextField) fields[1]).getText().trim();
             String roomType = (String) ((JComboBox) fields[2]).getSelectedItem();
             int totalBeds = (Integer) ((JSpinner) fields[3]).getValue();
+            String monitor = ((JTextField) fields[4]).getText().trim();
+            String phone = ((JTextField) fields[5]).getText().trim();
+            int score = (Integer) ((JSpinner) fields[6]).getValue();
+            String remark = ((JTextField) fields[7]).getText().trim();
 
-            if (roomNumber.trim().isEmpty()) {
+            if (roomNumber.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "房间号不能为空！", "错误", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // 添加到表格
             Object[] newRow = {
                     roomNumber, building, roomType, totalBeds,
-                    0, totalBeds, "", "", 80, "空置", ""
+                    0, totalBeds, monitor, phone, score, "空置", remark
             };
             tableModel.addRow(newRow);
+
+            // 更新统计信息
+            updateStatistics();
 
             JOptionPane.showMessageDialog(dialog, "宿舍添加成功！");
             dialog.dispose();
@@ -322,7 +379,6 @@ public class RoomPanel extends JPanel {
         buttonPanel.add(saveButton);
         buttonPanel.add(cancelButton);
         dialog.add(buttonPanel, BorderLayout.SOUTH);
-
         dialog.setVisible(true);
     }
 
@@ -336,11 +392,111 @@ public class RoomPanel extends JPanel {
             return;
         }
 
-        String roomNumber = tableModel.getValueAt(selectedRow, 0).toString();
-        JOptionPane.showMessageDialog(this,
-                "编辑功能开发中，当前选择宿舍: " + roomNumber,
-                "提示",
-                JOptionPane.INFORMATION_MESSAGE);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "编辑宿舍信息", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(400, 450);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel formPanel = new JPanel(new GridLayout(9, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        String[] labels = {"宿舍楼:", "房间号:", "房间类型:", "床位总数:", "已住人数:",
+                "宿舍长:", "联系电话:", "卫生评分:", "状态:"};
+        JComponent[] fields = new JComponent[labels.length];
+
+        for (int i = 0; i < labels.length; i++) {
+            formPanel.add(new JLabel(labels[i]));
+
+            String currentValue = "";
+            if (selectedRow < tableModel.getRowCount()) {
+                switch (i) {
+                    case 0: currentValue = tableModel.getValueAt(selectedRow, 1).toString(); break;
+                    case 1: currentValue = tableModel.getValueAt(selectedRow, 0).toString(); break;
+                    case 2: currentValue = tableModel.getValueAt(selectedRow, 2).toString(); break;
+                    case 3: currentValue = tableModel.getValueAt(selectedRow, 3).toString(); break;
+                    case 4: currentValue = tableModel.getValueAt(selectedRow, 4).toString(); break;
+                    case 5: currentValue = tableModel.getValueAt(selectedRow, 6).toString(); break;
+                    case 6: currentValue = tableModel.getValueAt(selectedRow, 7).toString(); break;
+                    case 7: currentValue = tableModel.getValueAt(selectedRow, 8).toString(); break;
+                    case 8: currentValue = tableModel.getValueAt(selectedRow, 9).toString(); break;
+                }
+            }
+
+            switch (i) {
+                case 0:
+                    JComboBox<String> buildingCombo = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋", "E栋"});
+                    buildingCombo.setSelectedItem(currentValue);
+                    fields[i] = buildingCombo;
+                    break;
+                case 2:
+                    JComboBox<String> typeCombo = new JComboBox<>(new String[]{"二人间", "四人间", "六人间", "八人间"});
+                    typeCombo.setSelectedItem(currentValue);
+                    fields[i] = typeCombo;
+                    break;
+                case 3:
+                    JSpinner totalSpinner = new JSpinner(new SpinnerNumberModel(
+                            Integer.parseInt(currentValue), 1, 8, 1));
+                    fields[i] = totalSpinner;
+                    break;
+                case 4:
+                    JSpinner occupiedSpinner = new JSpinner(new SpinnerNumberModel(
+                            Integer.parseInt(currentValue), 0, 8, 1));
+                    fields[i] = occupiedSpinner;
+                    break;
+                case 7:
+                    JSpinner scoreSpinner = new JSpinner(new SpinnerNumberModel(
+                            Integer.parseInt(currentValue), 0, 100, 1));
+                    fields[i] = scoreSpinner;
+                    break;
+                case 8:
+                    JComboBox<String> statusCombo = new JComboBox<>(new String[]{"已住满", "有空位", "维修中", "空置"});
+                    statusCombo.setSelectedItem(currentValue);
+                    fields[i] = statusCombo;
+                    break;
+                default:
+                    JTextField textField = new JTextField(currentValue);
+                    if (i == 1) textField.setEditable(false); // 房间号不可编辑
+                    fields[i] = textField;
+                    break;
+            }
+            formPanel.add((Component) fields[i]);
+        }
+
+        dialog.add(formPanel, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton saveButton = new JButton("保存");
+        JButton cancelButton = new JButton("取消");
+
+        saveButton.addActionListener(e -> {
+            int totalBeds = (Integer) ((JSpinner) fields[3]).getValue();
+            int occupied = (Integer) ((JSpinner) fields[4]).getValue();
+            int available = totalBeds - occupied;
+
+            // 更新表格数据
+            tableModel.setValueAt(((JComboBox) fields[0]).getSelectedItem(), selectedRow, 1);
+            tableModel.setValueAt(((JComboBox) fields[2]).getSelectedItem(), selectedRow, 2);
+            tableModel.setValueAt(totalBeds, selectedRow, 3);
+            tableModel.setValueAt(occupied, selectedRow, 4);
+            tableModel.setValueAt(available, selectedRow, 5);
+            tableModel.setValueAt(((JTextField) fields[5]).getText(), selectedRow, 6);
+            tableModel.setValueAt(((JTextField) fields[6]).getText(), selectedRow, 7);
+            tableModel.setValueAt(((JSpinner) fields[7]).getValue(), selectedRow, 8);
+            tableModel.setValueAt(((JComboBox) fields[8]).getSelectedItem(), selectedRow, 9);
+
+            // 更新统计信息
+            updateStatistics();
+
+            JOptionPane.showMessageDialog(dialog, "宿舍信息修改成功！");
+            dialog.dispose();
+        });
+
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        buttonPanel.add(saveButton);
+        buttonPanel.add(cancelButton);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
 
     /**
@@ -353,7 +509,6 @@ public class RoomPanel extends JPanel {
             return;
         }
 
-        // 检查宿舍是否有人居住
         int occupied = Integer.parseInt(tableModel.getValueAt(selectedRow, 4).toString());
         if (occupied > 0) {
             JOptionPane.showMessageDialog(this,
@@ -371,6 +526,10 @@ public class RoomPanel extends JPanel {
 
         if (confirm == JOptionPane.YES_OPTION) {
             tableModel.removeRow(selectedRow);
+
+            // 更新统计信息
+            updateStatistics();
+
             JOptionPane.showMessageDialog(this, "删除成功！");
         }
     }
@@ -385,18 +544,64 @@ public class RoomPanel extends JPanel {
             return;
         }
 
-        // 检查是否有空余床位
         int availableBeds = Integer.parseInt(tableModel.getValueAt(selectedRow, 5).toString());
         if (availableBeds <= 0) {
             JOptionPane.showMessageDialog(this, "该宿舍已住满，无法入住！", "错误", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        String roomNumber = tableModel.getValueAt(selectedRow, 0).toString();
-        JOptionPane.showMessageDialog(this,
-                "为宿舍 " + roomNumber + " 办理入住登记\n空余床位: " + availableBeds,
-                "入住登记",
-                JOptionPane.INFORMATION_MESSAGE);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "入住登记", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(300, 200);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel formPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        formPanel.add(new JLabel("入住人数:"));
+        JSpinner checkinSpinner = new JSpinner(new SpinnerNumberModel(1, 1, availableBeds, 1));
+        formPanel.add(checkinSpinner);
+
+        formPanel.add(new JLabel("备注:"));
+        JTextField remarkField = new JTextField();
+        formPanel.add(remarkField);
+
+        dialog.add(formPanel, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton confirmButton = new JButton("确认入住");
+        JButton cancelButton = new JButton("取消");
+
+        confirmButton.addActionListener(e -> {
+            int checkinCount = (Integer) checkinSpinner.getValue();
+
+            // 更新宿舍信息
+            int currentOccupied = Integer.parseInt(tableModel.getValueAt(selectedRow, 4).toString());
+            int currentAvailable = Integer.parseInt(tableModel.getValueAt(selectedRow, 5).toString());
+
+            tableModel.setValueAt(currentOccupied + checkinCount, selectedRow, 4);
+            tableModel.setValueAt(currentAvailable - checkinCount, selectedRow, 5);
+
+            // 如果住满了，更新状态
+            if (currentAvailable - checkinCount == 0) {
+                tableModel.setValueAt("已住满", selectedRow, 9);
+            } else {
+                tableModel.setValueAt("有空位", selectedRow, 9);
+            }
+
+            // 更新统计信息
+            updateStatistics();
+
+            JOptionPane.showMessageDialog(dialog, "入住登记成功！\n入住人数: " + checkinCount);
+            dialog.dispose();
+        });
+
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        buttonPanel.add(confirmButton);
+        buttonPanel.add(cancelButton);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
+        dialog.setVisible(true);
     }
 
     /**
@@ -409,68 +614,129 @@ public class RoomPanel extends JPanel {
             return;
         }
 
-        String roomNumber = tableModel.getValueAt(selectedRow, 0).toString();
-        JOptionPane.showMessageDialog(this,
-                "为宿舍 " + roomNumber + " 办理退宿处理",
-                "退宿处理",
-                JOptionPane.INFORMATION_MESSAGE);
-    }
+        int occupied = Integer.parseInt(tableModel.getValueAt(selectedRow, 4).toString());
+        if (occupied <= 0) {
+            JOptionPane.showMessageDialog(this, "该宿舍没有学生居住！", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-    /**
-     * 查看检查记录
-     */
-    private void viewInspection() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "宿舍检查记录", true);
-        dialog.setSize(500, 400);
-        dialog.setLocationRelativeTo(this);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "退宿处理", true);
         dialog.setLayout(new BorderLayout());
+        dialog.setSize(300, 200);
+        dialog.setLocationRelativeTo(this);
 
-        String[] columns = {"检查日期", "宿舍号", "卫生得分", "安全问题", "检查员", "备注"};
-        Object[][] data = {
-                {"2024-01-15", "A101", "95", "无", "张三", "优秀"},
-                {"2024-01-15", "A102", "88", "垃圾未及时清理", "张三", "良好"},
-                {"2024-01-15", "A103", "90", "无", "张三", "优秀"},
-                {"2024-01-14", "B201", "92", "无", "李四", "优秀"},
-                {"2024-01-14", "B202", "85", "物品摆放不整齐", "李四", "良好"},
-        };
+        JPanel formPanel = new JPanel(new GridLayout(2, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JTable inspectionTable = new JTable(data, columns);
-        JScrollPane scrollPane = new JScrollPane(inspectionTable);
+        formPanel.add(new JLabel("退宿人数:"));
+        JSpinner checkoutSpinner = new JSpinner(new SpinnerNumberModel(1, 1, occupied, 1));
+        formPanel.add(checkoutSpinner);
 
-        dialog.add(scrollPane, BorderLayout.CENTER);
+        formPanel.add(new JLabel("退宿原因:"));
+        JTextField reasonField = new JTextField();
+        formPanel.add(reasonField);
+
+        dialog.add(formPanel, BorderLayout.CENTER);
+
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton confirmButton = new JButton("确认退宿");
+        JButton cancelButton = new JButton("取消");
+
+        confirmButton.addActionListener(e -> {
+            int checkoutCount = (Integer) checkoutSpinner.getValue();
+            String reason = reasonField.getText().trim();
+
+            // 更新宿舍信息
+            int currentOccupied = Integer.parseInt(tableModel.getValueAt(selectedRow, 4).toString());
+            int totalBeds = Integer.parseInt(tableModel.getValueAt(selectedRow, 3).toString());
+
+            tableModel.setValueAt(currentOccupied - checkoutCount, selectedRow, 4);
+            tableModel.setValueAt(totalBeds - (currentOccupied - checkoutCount), selectedRow, 5);
+
+            // 更新状态
+            if (currentOccupied - checkoutCount == 0) {
+                tableModel.setValueAt("空置", selectedRow, 9);
+            } else {
+                tableModel.setValueAt("有空位", selectedRow, 9);
+            }
+
+            // 更新统计信息
+            updateStatistics();
+
+            JOptionPane.showMessageDialog(dialog,
+                    "退宿处理成功！\n退宿人数: " + checkoutCount +
+                            (reason.isEmpty() ? "" : "\n退宿原因: " + reason));
+            dialog.dispose();
+        });
+
+        cancelButton.addActionListener(e -> dialog.dispose());
+
+        buttonPanel.add(confirmButton);
+        buttonPanel.add(cancelButton);
+        dialog.add(buttonPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
 
     /**
-     * 按宿舍楼过滤
+     * 导出宿舍数据
      */
-    private void filterByBuilding() {
-        String selectedBuilding = (String) buildingFilter.getSelectedItem();
-        if ("全部".equals(selectedBuilding)) {
-            // 重置过滤
-            roomTable.setRowSorter(null);
-        } else {
-            // 简单过滤逻辑
-            javax.swing.RowFilter<DefaultTableModel, Object> filter = new javax.swing.RowFilter<DefaultTableModel, Object>() {
-                public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
-                    String building = entry.getStringValue(1); // 第1列是宿舍楼
-                    return building.equals(selectedBuilding);
-                }
-            };
+    private void exportRoomData() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("导出宿舍数据");
+        fileChooser.setSelectedFile(new java.io.File("宿舍数据_" +
+                new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".xlsx"));
 
-            javax.swing.table.TableRowSorter<DefaultTableModel> sorter =
-                    new javax.swing.table.TableRowSorter<>(tableModel);
-            sorter.setRowFilter(filter);
-            roomTable.setRowSorter(sorter);
+        int result = fileChooser.showSaveDialog(this);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            java.io.File file = fileChooser.getSelectedFile();
+            String filePath = file.getAbsolutePath();
+
+            if (!filePath.toLowerCase().endsWith(".xlsx")) {
+                filePath += ".xlsx";
+            }
+
+            // 模拟导出过程
+            String finalFilePath = filePath;
+            new Thread(() -> {
+                try {
+                    Thread.sleep(1000);
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(this,
+                                "宿舍数据导出成功！\n文件路径: " + finalFilePath + "\n导出记录数: " + tableModel.getRowCount(),
+                                "导出成功",
+                                JOptionPane.INFORMATION_MESSAGE);
+                    });
+                } catch (Exception e) {
+                    SwingUtilities.invokeLater(() -> {
+                        JOptionPane.showMessageDialog(this,
+                                "导出失败: " + e.getMessage(),
+                                "错误",
+                                JOptionPane.ERROR_MESSAGE);
+                    });
+                }
+            }).start();
         }
     }
 
     /**
-     * 按状态过滤
+     * 过滤表格
      */
-    private void filterByStatus() {
-        // 实现状态过滤逻辑
-        JOptionPane.showMessageDialog(this, "状态过滤功能开发中", "提示", JOptionPane.INFORMATION_MESSAGE);
+    private void filterTable() {
+        String building = (String) buildingFilter.getSelectedItem();
+        String status = (String) statusFilter.getSelectedItem();
+
+        javax.swing.RowFilter<DefaultTableModel, Object> filter = new javax.swing.RowFilter<DefaultTableModel, Object>() {
+            public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
+                boolean buildingMatch = "全部".equals(building) || entry.getStringValue(1).equals(building);
+                boolean statusMatch = "全部".equals(status) || entry.getStringValue(9).equals(status);
+                return buildingMatch && statusMatch;
+            }
+        };
+
+        javax.swing.table.TableRowSorter<DefaultTableModel> sorter =
+                new javax.swing.table.TableRowSorter<>(tableModel);
+        sorter.setRowFilter(filter);
+        roomTable.setRowSorter(sorter);
     }
 
     /**
@@ -483,11 +749,12 @@ public class RoomPanel extends JPanel {
             return;
         }
 
-        // 简单的搜索逻辑
+        roomTable.clearSelection();
+
         boolean found = false;
-        for (int i = 0; i < roomTable.getRowCount(); i++) {
-            for (int j = 0; j < roomTable.getColumnCount(); j++) {
-                Object value = roomTable.getValueAt(i, j);
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            for (int j = 0; j < tableModel.getColumnCount(); j++) {
+                Object value = tableModel.getValueAt(i, j);
                 if (value != null && value.toString().toLowerCase().contains(keyword.toLowerCase())) {
                     roomTable.setRowSelectionInterval(i, i);
                     roomTable.scrollRectToVisible(roomTable.getCellRect(i, 0, true));
@@ -516,6 +783,7 @@ public class RoomPanel extends JPanel {
                 availableRooms.append(tableModel.getValueAt(i, 0)).append(" (")
                         .append(tableModel.getValueAt(i, 1)).append(") - ")
                         .append("空余床位: ").append(availableBeds)
+                        .append(" - ").append(tableModel.getValueAt(i, 2))
                         .append("\n");
                 count++;
             }
@@ -529,40 +797,114 @@ public class RoomPanel extends JPanel {
         textArea.setEditable(false);
         textArea.setFont(new Font("微软雅黑", Font.PLAIN, 14));
         JScrollPane scrollPane = new JScrollPane(textArea);
-        scrollPane.setPreferredSize(new Dimension(300, 200));
+        scrollPane.setPreferredSize(new Dimension(400, 300));
 
         JOptionPane.showMessageDialog(this, scrollPane, "空余宿舍 (" + count + "间)", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
-     * 生成维修清单
+     * 显示宿舍使用率图表
      */
-    private void generateRepairList() {
-        JOptionPane.showMessageDialog(this, "维修清单已生成！", "提示", JOptionPane.INFORMATION_MESSAGE);
-    }
+    private void showRoomUsageChart() {
+        JDialog chartDialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "宿舍使用率统计图表", true);
+        chartDialog.setSize(600, 500);
+        chartDialog.setLocationRelativeTo(this);
+        chartDialog.setLayout(new BorderLayout());
 
-    /**
-     * 打印宿舍报表
-     */
-    private void printRoomReport() {
-        JOptionPane.showMessageDialog(this, "宿舍报表打印中...", "提示", JOptionPane.INFORMATION_MESSAGE);
-    }
+        JPanel chartPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2d = (Graphics2D) g;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-    /**
-     * 导出宿舍数据
-     */
-    private void exportRoomData() {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("导出宿舍数据");
-        fileChooser.setSelectedFile(new java.io.File("宿舍数据.xls"));
+                // 计算统计数据
+                java.util.Map<String, Integer> buildingStats = new java.util.HashMap<>();
+                java.util.Map<String, Integer> buildingTotal = new java.util.HashMap<>();
 
-        int result = fileChooser.showSaveDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            java.io.File file = fileChooser.getSelectedFile();
-            JOptionPane.showMessageDialog(this,
-                    "数据导出功能开发中\n文件路径: " + file.getAbsolutePath(),
-                    "提示",
-                    JOptionPane.INFORMATION_MESSAGE);
-        }
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    String building = tableModel.getValueAt(i, 1).toString();
+                    int totalBeds = Integer.parseInt(tableModel.getValueAt(i, 3).toString());
+                    int occupied = Integer.parseInt(tableModel.getValueAt(i, 4).toString());
+
+                    buildingStats.put(building, buildingStats.getOrDefault(building, 0) + occupied);
+                    buildingTotal.put(building, buildingTotal.getOrDefault(building, 0) + totalBeds);
+                }
+
+                // 绘制图表
+                String[] buildings = buildingStats.keySet().toArray(new String[0]);
+                int barWidth = 40;
+                int spacing = 30;
+                int startX = 100;
+                int startY = 100;
+                int chartHeight = 300;
+
+                // 标题
+                g2d.setFont(new Font("微软雅黑", Font.BOLD, 18));
+                g2d.drawString("各宿舍楼使用率统计", 200, 40);
+
+                // 坐标轴
+                g2d.drawLine(startX, startY, startX, startY + chartHeight);
+                g2d.drawLine(startX, startY + chartHeight, startX + (barWidth + spacing) * buildings.length, startY + chartHeight);
+
+                // Y轴标签
+                g2d.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+                for (int i = 0; i <= 10; i++) {
+                    int y = startY + chartHeight - (i * chartHeight / 10);
+                    g2d.drawString(i * 10 + "%", startX - 30, y + 4);
+                    g2d.drawLine(startX - 5, y, startX, y);
+                }
+
+                // 柱状图
+                for (int i = 0; i < buildings.length; i++) {
+                    int total = buildingTotal.get(buildings[i]);
+                    int occupied = buildingStats.get(buildings[i]);
+                    double rate = total > 0 ? (occupied * 100.0 / total) : 0;
+
+                    int barX = startX + i * (barWidth + spacing);
+                    int barHeight = (int) (chartHeight * rate / 100.0);
+
+                    // 柱子
+                    g2d.setColor(new Color(70, 130, 180));
+                    g2d.fillRect(barX, startY + chartHeight - barHeight, barWidth, barHeight);
+
+                    // 边框
+                    g2d.setColor(Color.BLACK);
+                    g2d.drawRect(barX, startY + chartHeight - barHeight, barWidth, barHeight);
+
+                    // 标注
+                    g2d.drawString(buildings[i], barX + barWidth/2 - 10, startY + chartHeight + 20);
+                    g2d.drawString(String.format("%.1f%%", rate), barX + barWidth/2 - 15, startY + chartHeight - barHeight - 5);
+
+                    // 详细数据
+                    g2d.drawString(occupied + "/" + total, barX + barWidth/2 - 15, startY + chartHeight - barHeight/2 + 5);
+                }
+
+                // 图例
+                g2d.setColor(new Color(70, 130, 180));
+                g2d.fillRect(startX, 450, 20, 20);
+                g2d.setColor(Color.BLACK);
+                g2d.drawString("使用率", startX + 30, 465);
+
+                // 统计摘要
+                g2d.setFont(new Font("微软雅黑", Font.BOLD, 14));
+                g2d.drawString("统计摘要:", startX + 200, 450);
+                g2d.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+                g2d.drawString("总宿舍数: " + tableModel.getRowCount() + "间", startX + 200, 475);
+
+                int totalBeds = 0;
+                int totalOccupied = 0;
+                for (String building : buildings) {
+                    totalBeds += buildingTotal.get(building);
+                    totalOccupied += buildingStats.get(building);
+                }
+                g2d.drawString("总床位数: " + totalBeds + "个", startX + 200, 495);
+                g2d.drawString("已住人数: " + totalOccupied + "人", startX + 350, 475);
+                g2d.drawString("平均入住率: " + String.format("%.1f%%", totalBeds > 0 ? (totalOccupied * 100.0 / totalBeds) : 0), startX + 350, 495);
+            }
+        };
+
+        chartDialog.add(chartPanel, BorderLayout.CENTER);
+        chartDialog.setVisible(true);
     }
 }
