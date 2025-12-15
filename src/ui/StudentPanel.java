@@ -146,7 +146,7 @@ public class StudentPanel extends JPanel {
     }
 
     /**
-     * 从数据库中加载
+     * 从数据库中加载 表示显示功能
      */
     private void loadStudentsFromDB() {
         tableModel.setRowCount(0);
@@ -243,7 +243,7 @@ public class StudentPanel extends JPanel {
 
         saveButton.addActionListener(e -> {
 
-            // 1️⃣ 校验
+            //  校验
             String sno = fields[0].getText().trim();
             String name = fields[1].getText().trim();
 
@@ -252,7 +252,7 @@ public class StudentPanel extends JPanel {
                 return;
             }
 
-            // 2️⃣ 写入数据库
+            //  写入数据库
             Connection conn = null;
             PreparedStatement ps = null;
 
@@ -279,7 +279,6 @@ public class StudentPanel extends JPanel {
 
                 JOptionPane.showMessageDialog(dialog, "学生添加成功！");
 
-                // 3️⃣ 刷新表格（从数据库重新查）
                 loadStudentsFromDB();
 
                 dialog.dispose();
