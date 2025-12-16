@@ -1,6 +1,11 @@
 import ui.LoginFrame;
 import javax.swing.*;
 
+
+
+import ui.MainFrame;
+import util.DBUtil;
+
 /**
  * 应用程序主启动类
  */
@@ -18,5 +23,8 @@ public class App {
             LoginFrame loginFrame = new LoginFrame();
             loginFrame.setVisible(true);
         });
+
+        new MainFrame();
     }
 }
+//yyd

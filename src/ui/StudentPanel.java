@@ -1,9 +1,18 @@
 package ui;
-
+import java.sql.*;
+import service.*;
+import model.Student;
+import service.impl.StudentServiceImpl;
+import util.DBUtil;
+import dao.*;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.Date;
+  // 用于数据库中的日期类型
+
+
 
 /**
  * 学生管理面板
@@ -12,11 +21,11 @@ public class StudentPanel extends JPanel {
     private JTable studentTable;
     private DefaultTableModel tableModel;
     private JTextField searchField;
-    private JLabel countLabel;
+    private JLabel countLabel; // 添加成员变量
 
     public StudentPanel() {
         initUI();
-        loadSampleData();
+        loadStudentsFromDB();
     }
 
     private void initUI() {
@@ -41,7 +50,7 @@ public class StudentPanel extends JPanel {
         toolBar.setBorder(BorderFactory.createTitledBorder("学生管理"));
 
         // 操作按钮
-        String[] buttons = {"新增", "编辑", "删除", "分配宿舍", "导出数据"};
+        String[] buttons = {"新增", "编辑", "删除", "分配宿舍", "查看详情", "导出数据"};
 
         for (String text : buttons) {
             JButton button = new JButton(text);
@@ -75,11 +84,12 @@ public class StudentPanel extends JPanel {
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
 
+        // 创建表格模型
         String[] columns = {"学号", "姓名", "性别", "学院", "专业", "年级", "班级", "宿舍号", "床位号", "联系电话", "入住日期"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false;
+                return false; // 表格不可直接编辑
             }
         };
 
@@ -89,16 +99,18 @@ public class StudentPanel extends JPanel {
         studentTable.setFont(new Font("微软雅黑", Font.PLAIN, 12));
 
         // 设置列宽
-        studentTable.getColumnModel().getColumn(0).setPreferredWidth(80);
-        studentTable.getColumnModel().getColumn(1).setPreferredWidth(80);
-        studentTable.getColumnModel().getColumn(2).setPreferredWidth(50);
-        studentTable.getColumnModel().getColumn(3).setPreferredWidth(100);
-        studentTable.getColumnModel().getColumn(4).setPreferredWidth(100);
+        studentTable.getColumnModel().getColumn(0).setPreferredWidth(80);  // 学号
+        studentTable.getColumnModel().getColumn(1).setPreferredWidth(80);  // 姓名
+        studentTable.getColumnModel().getColumn(2).setPreferredWidth(50);  // 性别
+        studentTable.getColumnModel().getColumn(3).setPreferredWidth(100); // 学院
+        studentTable.getColumnModel().getColumn(4).setPreferredWidth(100); // 专业
 
+        // 添加滚动条
         JScrollPane scrollPane = new JScrollPane(studentTable);
         scrollPane.setBorder(BorderFactory.createTitledBorder("学生列表"));
 
         panel.add(scrollPane, BorderLayout.CENTER);
+
         return panel;
     }
 
@@ -109,9 +121,11 @@ public class StudentPanel extends JPanel {
         JPanel infoPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
         infoPanel.setBorder(BorderFactory.createEtchedBorder());
 
+        // 直接创建countLabel，避免通过索引访问
         countLabel = new JLabel("学生总数: 0");
         JLabel selectedLabel = new JLabel("已选中: 0");
 
+        // 监听表格选择变化
         studentTable.getSelectionModel().addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
                 selectedLabel.setText("已选中: " + studentTable.getSelectedRowCount());
@@ -126,29 +140,55 @@ public class StudentPanel extends JPanel {
     }
 
     /**
-     * 更新学生总数
+     * 更新学生总数 - 修复的方法
      */
     private void updateStudentCount() {
-        countLabel.setText("学生总数: " + tableModel.getRowCount());
+        if (countLabel != null) {
+            countLabel.setText("学生总数: " + tableModel.getRowCount());
+        }
     }
 
     /**
-     * 加载示例数据
+     * 从数据库中加载 表示显示功能
      */
-    private void loadSampleData() {
-        Object[][] sampleData = {
-                {"20230001", "张三", "男", "计算机学院", "软件工程", "2023", "1班", "A101", "1号", "13800138001", "2023-09-01"},
-                {"20230002", "李四", "女", "文学院", "汉语言文学", "2023", "2班", "B202", "3号", "13800138002", "2023-09-01"},
-                {"20230003", "王五", "男", "经济学院", "金融学", "2023", "1班", "C303", "2号", "13800138003", "2023-09-01"},
-                {"20230004", "赵六", "女", "法学院", "法学", "2023", "3班", "A102", "4号", "13800138004", "2023-09-01"},
-                {"20230005", "钱七", "男", "医学院", "临床医学", "2023", "2班", "B201", "1号", "13800138005", "2023-09-01"},
-                {"20230006", "孙八", "女", "艺术学院", "音乐表演", "2023", "1班", "C304", "3号", "13800138006", "2023-09-01"},
-        };
+    private void loadStudentsFromDB() {
+        tableModel.setRowCount(0);
 
-        for (Object[] row : sampleData) {
-            tableModel.addRow(row);
+        Connection conn = null;
+        Statement stmt = null;
+        ResultSet rs = null;
+
+        try {
+            conn = DBUtil.getConnection();
+            stmt = conn.createStatement();
+            rs = stmt.executeQuery("SELECT * FROM student");
+
+            while (rs.next()) {
+                Object[] row = {
+                        rs.getString("sno"),
+                        rs.getString("name"),
+                        rs.getString("gender"),
+                        rs.getString("college"),
+                        rs.getString("major"),
+                        rs.getString("grade"),
+                        rs.getString("class"),
+                        rs.getString("dorm_no"),
+                        rs.getString("bed_no"),
+                        rs.getString("phone"),
+                        rs.getDate("in_date")
+                };
+                tableModel.addRow(row);
+            }
+
+            updateStudentCount();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try { if (rs != null) rs.close(); } catch (Exception ignored) {}
+            try { if (stmt != null) stmt.close(); } catch (Exception ignored) {}
+            DBUtil.close(conn);
         }
-        updateStudentCount();
     }
 
     /**
@@ -170,8 +210,11 @@ public class StudentPanel extends JPanel {
             case "分配宿舍":
                 assignDormitory();
                 break;
+            case "查看详情":
+                viewDetails();
+                break;
             case "导出数据":
-                exportStudentData();
+                exportData();
                 break;
         }
     }
@@ -188,22 +231,13 @@ public class StudentPanel extends JPanel {
         JPanel formPanel = new JPanel(new GridLayout(11, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        String[] labels = {"学号:", "姓名:", "性别:", "学院:", "专业:", "年级:", "班级:", "联系电话:", "紧急联系人:", "紧急电话:", "宿舍楼:"};
-        JComponent[] fields = new JComponent[labels.length];
+        String[] labels = {"学号:", "姓名:", "性别:", "学院:", "专业:", "年级:", "班级:", "联系电话:", "紧急联系人:", "紧急联系电话:"};
+        JTextField[] fields = new JTextField[labels.length];
 
         for (int i = 0; i < labels.length; i++) {
             formPanel.add(new JLabel(labels[i]));
-
-            if (i == 2) { // 性别
-                JComboBox<String> genderCombo = new JComboBox<>(new String[]{"男", "女"});
-                fields[i] = genderCombo;
-            } else if (i == 10) { // 宿舍楼
-                JComboBox<String> buildingCombo = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋"});
-                fields[i] = buildingCombo;
-            } else {
-                fields[i] = new JTextField();
-            }
-            formPanel.add((Component) fields[i]);
+            fields[i] = new JTextField();
+            formPanel.add(fields[i]);
         }
 
         dialog.add(formPanel, BorderLayout.CENTER);
@@ -212,46 +246,50 @@ public class StudentPanel extends JPanel {
         JButton saveButton = new JButton("保存");
         JButton cancelButton = new JButton("取消");
 
+        // 保存按钮事件监听器 - 放在正确的位置
         saveButton.addActionListener(e -> {
-            String studentId = ((JTextField) fields[0]).getText().trim();
-            String name = ((JTextField) fields[1]).getText().trim();
-
-            if (studentId.isEmpty() || name.isEmpty()) {
+            // 验证必填字段
+            if (fields[0].getText().trim().isEmpty() || fields[1].getText().trim().isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "学号和姓名不能为空！", "错误", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            String gender = (String) ((JComboBox) fields[2]).getSelectedItem();
-            String college = ((JTextField) fields[3]).getText().trim();
-            String major = ((JTextField) fields[4]).getText().trim();
-            String grade = ((JTextField) fields[5]).getText().trim();
-            String className = ((JTextField) fields[6]).getText().trim();
-            String phone = ((JTextField) fields[7]).getText().trim();
-            String building = (String) ((JComboBox) fields[10]).getSelectedItem();
+            // 创建学生对象并设置属性
+            Student student = new Student();
+            student.setSno(fields[0].getText().trim());
+            student.setName(fields[1].getText().trim());
+            student.setGender(fields[2].getText().trim());
+            student.setCollege(fields[3].getText().trim());
+            student.setMajor(fields[4].getText().trim());
+            student.setGrade(fields[5].getText().trim());
+            student.setClazz(fields[6].getText().trim());
+            student.setPhone(fields[7].getText().trim());
+            // 注意：紧急联系人相关字段可能需要在Student模型中添加
+            student.setInDate(new Date());
 
-            // 生成宿舍号和床位号（简化逻辑）
-            String roomNumber = building.replace("栋", "") + "101";
-            String bedNumber = "1号";
-
-            Object[] newRow = {
-                    studentId, name, gender, college, major, grade, className,
-                    roomNumber, bedNumber, phone, new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date())
-            };
-            tableModel.addRow(newRow);
-
-            updateStudentCount();
-            JOptionPane.showMessageDialog(dialog, "学生添加成功！");
-            dialog.dispose();
+            // 调用业务层添加学生
+            StudentService studentService = new StudentServiceImpl();
+            try {
+                studentService.addStudent(student);
+                JOptionPane.showMessageDialog(dialog, "学生添加成功！");
+                dialog.dispose(); // 关闭对话框
+                loadStudentsFromDB(); // 刷新表格数据
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialog, "添加学生失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            }
         });
 
+        // 取消按钮事件监听器
         cancelButton.addActionListener(e -> dialog.dispose());
 
         buttonPanel.add(saveButton);
         buttonPanel.add(cancelButton);
+
         dialog.add(buttonPanel, BorderLayout.SOUTH);
+
+        // 显示对话框
         dialog.setVisible(true);
     }
-
     /**
      * 编辑学生
      */
@@ -390,6 +428,7 @@ public class StudentPanel extends JPanel {
 
         String studentName = tableModel.getValueAt(selectedRow, 1).toString();
 
+        // 宿舍分配对话框
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "为 " + studentName + " 分配宿舍", true);
         dialog.setLayout(new GridLayout(5, 2, 10, 10));
         dialog.setSize(300, 250);
@@ -435,6 +474,7 @@ public class StudentPanel extends JPanel {
 
         dialog.add(assignButton);
         dialog.add(cancelButton);
+
         dialog.setVisible(true);
     }
 
