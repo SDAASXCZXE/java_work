@@ -24,7 +24,6 @@ public class App {
             loginFrame.setVisible(true);
         });
 
-        new MainFrame();
     }
 }
 //yyd

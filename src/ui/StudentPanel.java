@@ -210,12 +210,12 @@ public class StudentPanel extends JPanel {
             case "分配宿舍":
                 assignDormitory();
                 break;
-            case "查看详情":
-                viewDetails();
-                break;
-            case "导出数据":
-                exportData();
-                break;
+           // case "查看详情":
+             //   viewDetails();
+            //    break;
+           // case "导出数据":
+             //   exportData();
+               // break;
         }
     }
 
