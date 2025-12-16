@@ -29,8 +29,13 @@ public class StudentServiceImpl implements StudentService {
     }
 
     // 删除学生
-    @Override
-    public boolean deleteStudent(int id) {
-        return studentDao.deleteStudent(id);  // 使用正确的变量名
-    }
+        @Override
+        public void deleteStudent(String sno) {
+            try {
+                studentDao.deleteStudent(sno);
+            } catch (Exception e) {
+                throw new RuntimeException("删除学生失败: " + e.getMessage());
+            }
+        }
+
 }

@@ -7,5 +7,5 @@ import java.util.List;
 public interface StudentService {
     List<Student> listStudents();
     void addStudent(Student student);
-    boolean deleteStudent(int id);
+    void deleteStudent(String id);
 }

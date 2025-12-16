@@ -7,6 +7,7 @@ import util.DBUtil;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,16 +71,20 @@ public class StudentDaoImpl implements StudentDao {
 
     // 根据 id 删除学生
     @Override
-    public boolean deleteStudent(int id) {
-        String sql = "DELETE FROM student WHERE id = ?";
+    public void deleteStudent(String sno) {
+        String sql = "DELETE FROM student WHERE sno = ?";
 
         try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            return ps.executeUpdate() > 0;
-        } catch (Exception e) {
-            e.printStackTrace();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+
+            pstmt.setString(1, sno);
+            int rows = pstmt.executeUpdate();
+
+            if (rows == 0) {
+                throw new RuntimeException("未找到学号为 " + sno + " 的学生");
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("删除学生失败: " + e.getMessage(), e);
         }
-        return false;
     }
 }

@@ -291,6 +291,60 @@ public class StudentPanel extends JPanel {
         dialog.setVisible(true);
     }
     /**
+     * 删除学生（走 Service → DAO → 数据库）
+     */
+    private void deleteStudent() {
+        // 1. 获取选中行
+        int selectedRow = studentTable.getSelectedRow();
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "请先选择要删除的学生！",
+                    "提示",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
+        // 2. 获取学生学号（第0列）
+        String studentSno = tableModel.getValueAt(selectedRow, 0).toString();
+
+        // 3. 获取学生姓名（第1列）
+        String studentName = tableModel.getValueAt(selectedRow, 1).toString();
+
+        // 4. 删除确认
+        int confirm = JOptionPane.showConfirmDialog(
+                this,
+                "确定要删除学生 [" + studentName + "] 吗？",
+                "确认删除",
+                JOptionPane.YES_NO_OPTION
+        );
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            try {
+                // 5. 调用 Service，真正删除数据库数据
+                StudentService studentService = new StudentServiceImpl();
+                studentService.deleteStudent(studentSno);
+
+                // 6. 重新加载数据库数据到 JTable
+                loadStudentsFromDB();
+
+                // 7. 更新学生数量
+                updateStudentCount();
+
+                JOptionPane.showMessageDialog(this, "删除成功！");
+            } catch (Exception e) {
+                e.printStackTrace();  // 调试用
+                JOptionPane.showMessageDialog(
+                        this,
+                        "删除失败: " + e.getMessage(),
+                        "删除失败",
+                        JOptionPane.ERROR_MESSAGE
+                );
+            }
+        }
+    }
+    /**
      * 编辑学生
      */
     private void editStudent() {
@@ -391,29 +445,6 @@ public class StudentPanel extends JPanel {
         buttonPanel.add(cancelButton);
         dialog.add(buttonPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
-    }
-
-    /**
-     * 删除学生
-     */
-    private void deleteStudent() {
-        int selectedRow = studentTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "请先选择要删除的学生！", "提示", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
-
-        String studentName = tableModel.getValueAt(selectedRow, 1).toString();
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "确定要删除学生 [" + studentName + "] 吗？",
-                "确认删除",
-                JOptionPane.YES_NO_OPTION);
-
-        if (confirm == JOptionPane.YES_OPTION) {
-            tableModel.removeRow(selectedRow);
-            updateStudentCount();
-            JOptionPane.showMessageDialog(this, "删除成功！");
-        }
     }
 
     /**

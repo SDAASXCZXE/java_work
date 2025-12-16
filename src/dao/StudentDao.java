@@ -10,5 +10,5 @@ import java.util.List;
 public interface StudentDao {
     List<Student> findAll();
     void addStudent(Student student) throws Exception;
-    boolean deleteStudent(int id);
+    void deleteStudent(String sno);
 }
