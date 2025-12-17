@@ -10,9 +10,13 @@ import java.sql.DriverManager;
  */
 public class DBUtil {
 
-    private static final String URL = "jdbc:mysql://localhost:3306/my_dorm?useSSL=false&serverTimezone=UTC&characterEncoding=utf8";
-    private static final String USER = "root";
-    private static final String PASSWORD = "";
+    private static final String URL =
+            "jdbc:mysql://rm-bp188tau63v6gj419qo.mysql.rds.aliyuncs.com:3306/student"
+                    + "?useSSL=false"
+                    + "&serverTimezone=Asia/Shanghai"
+                    + "&characterEncoding=utf8";
+    private static final String USER = "java_user";
+    private static final String PASSWORD = "SUNsun123@";
 
     public static Connection getConnection() {
         try {
