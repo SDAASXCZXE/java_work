@@ -1,7 +1,4 @@
 package ui;
-
-import util.DBUtil;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -14,15 +11,13 @@ import service.RoomService;
 import service.impl.RoomServiceImpl;
 
 /**
- * 宿舍管理面板（已重构，风格与 StudentPanel 保持一致）
- *
+ * 宿舍管理面板
  * 该类负责显示和操作宿舍信息的界面，包括：
  * - 顶部工具栏（新增/编辑/删除/入住/退宿/导出）
  * - 中间宿舍表格（显示宿舍列表）
  * - 底部信息栏（总宿舍数、已选中数量）
- *
- * 数据操作现在通过 `RoomService` 与数据库交互（持久化）。
  */
+
 public class RoomPanel extends JPanel {
     private JTable roomTable;
     private DefaultTableModel tableModel;
@@ -187,15 +182,15 @@ public class RoomPanel extends JPanel {
                 Object[] row = {
                         r.getRoom_number(),
                         r.getBuilding(),
-                        r.getRoom_type() != null ? r.getRoom_type().getDescription() : "",
+                        r.getRoom_type(),
                         r.getTotal_beds(),
                         r.getOccupied(),
                         r.getAvailable_beds(),
-                        r.getMonitor().orElse(""),
-                        r.getPhone().orElse(""),
+                        r.getMonitor(),
+                        r.getPhone(),
                         r.getHygiene_score(),
-                        r.getStatus() != null ? r.getStatus().getDescription() : "",
-                        r.getRemarks().orElse("")
+                        r.getStatus(),
+                        r.getRemarks()
                 };
                 tableModel.addRow(row);
             }
@@ -203,46 +198,6 @@ public class RoomPanel extends JPanel {
         } catch (Exception e) {
             e.printStackTrace();
         }
-    }
-
-    /**
-     * 从 ResultSet 中按一组候选列名读取字符串，按顺序尝试，找不到返回空字符串。
-     * @param rs ResultSet
-     * @param names 候选列名
-     * @return 读取到的字符串或空串
-     */
-    private String getString(ResultSet rs, String... names) {
-        for (String name : names) {
-            try {
-                String v = rs.getString(name);
-                if (v != null) return v;
-            } catch (SQLException ignored) {}
-        }
-        // 尝试按索引的宽容读取（如果有）
-        try {
-            ResultSetMetaData md = rs.getMetaData();
-            if (md.getColumnCount() >= 1) {
-                String v = rs.getString(1);
-                return v != null ? v : "";
-            }
-        } catch (SQLException ignored) {}
-        return "";
-    }
-
-    /**
-     * 从 ResultSet 中按一组候选列名读取整数，找不到或为 NULL 返回 Integer.MIN_VALUE
-     * @param rs ResultSet
-     * @param names 候选列名
-     * @return 读取到的整数或 Integer.MIN_VALUE
-     */
-    private int getInt(ResultSet rs, String... names) {
-        for (String name : names) {
-            try {
-                int v = rs.getInt(name);
-                if (!rs.wasNull()) return v;
-            } catch (SQLException ignored) {}
-        }
-        return Integer.MIN_VALUE;
     }
 
     /**
@@ -357,13 +312,10 @@ public class RoomPanel extends JPanel {
                 return;
             }
 
-            Room.RoomType rt = parseRoomType(roomType);
-            Room.RoomStatus rs = parseRoomStatus(statusText);
-
             // 确保 available 不超过 total
             available = Math.max(0, Math.min(available, totalBeds));
 
-            Room room = new Room(roomNumber, building, rt, totalBeds, occupied, available, monitor, phone, hygiene, rs, remarks);
+            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
             boolean ok = roomService.add(room);
             if (ok) {
                 loadRoomsFromDB();
@@ -501,11 +453,9 @@ public class RoomPanel extends JPanel {
             String statusText = (String) ((JComboBox<String>) fields[9]).getSelectedItem();
             String remarks = ((JTextField) fields[10]).getText().trim();
 
-            Room.RoomType rt = parseRoomType(roomType);
-            Room.RoomStatus rs = parseRoomStatus(statusText);
             available = Math.max(0, Math.min(available, totalBeds));
 
-            Room room = new Room(roomNumber, building, rt, totalBeds, occupied, available, monitor, phone, hygiene, rs, remarks);
+            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
             boolean ok = roomService.update(room);
             if (ok) {
                 loadRoomsFromDB();
@@ -804,25 +754,4 @@ public class RoomPanel extends JPanel {
         try { return Integer.parseInt(s); } catch (Exception e) { return def; }
     }
 
-    /**
-     * 将房间类型的中文描述解析为 Room.RoomType 枚举
-     */
-    private Room.RoomType parseRoomType(String desc) {
-        if (desc == null) return Room.RoomType.QUAD;
-        if (desc.contains("二")) return Room.RoomType.DOUBLE;
-        if (desc.contains("四")) return Room.RoomType.QUAD;
-        if (desc.contains("六")) return Room.RoomType.SIX;
-        if (desc.contains("单")) return Room.RoomType.SINGLE;
-        return Room.RoomType.QUAD;
-    }
-
-    /**
-     * 将中文状态描述解析为 Room.RoomStatus 枚举
-     */
-    private Room.RoomStatus parseRoomStatus(String s) {
-        if (s == null) return Room.RoomStatus.AVAILABLE;
-        if (s.contains("已住满") || s.contains("满")) return Room.RoomStatus.FULL;
-        if (s.contains("空置")) return Room.RoomStatus.VACANT;
-        return Room.RoomStatus.AVAILABLE;
-    }
 }
