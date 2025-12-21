@@ -15,7 +15,6 @@ public class DBUtil {
                     + "?useSSL=false"
                     + "&serverTimezone=Asia/Shanghai"
                     + "&characterEncoding=utf8";
-
     private static final String USER = "java_user";
     private static final String PASSWORD = "SUNsun123@";
 

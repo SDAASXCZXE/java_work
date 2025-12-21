@@ -9,7 +9,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 /**
- * 系统登录界面 - 根据图片描述重新设计
+ * 系统登录界面 - 修复按钮显示问题
  */
 public class LoginFrame extends JFrame {
     private JTextField usernameField;
@@ -18,7 +18,6 @@ public class LoginFrame extends JFrame {
     private JCheckBox rememberCheckBox;
     private User currentUser;
 
-    // 新增：日期显示
     private JLabel dateLabel;
 
     public LoginFrame() {
@@ -38,149 +37,150 @@ public class LoginFrame extends JFrame {
         // 设置窗口图标
         setIconImage(createIcon());
 
-        // 主面板使用BorderLayout
-        JPanel mainPanel = new JPanel(new BorderLayout());
-        mainPanel.setBackground(new Color(245, 245, 245));
+        // 使用BorderLayout作为主布局
+        setLayout(new BorderLayout());
 
         // =========== 顶部标题区域 ===========
-        JPanel headerPanel = new JPanel(new BorderLayout());
+        JPanel headerPanel = new JPanel();
         headerPanel.setBackground(new Color(70, 130, 180));
-        headerPanel.setBorder(BorderFactory.createEmptyBorder(15, 20, 15, 20));
         headerPanel.setPreferredSize(new Dimension(500, 80));
+        headerPanel.setLayout(new BorderLayout());
 
-        // 左侧：系统标题
-        JLabel titleLabel = new JLabel("学生宿舍管理系统");
+        // 左侧标题
+        JLabel titleLabel = new JLabel("  学生宿舍管理系统");
         titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 28));
         titleLabel.setForeground(Color.WHITE);
         headerPanel.add(titleLabel, BorderLayout.WEST);
 
-        // 右侧：日期显示
+        // 右侧日期
         dateLabel = new JLabel();
         dateLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
         dateLabel.setForeground(Color.WHITE);
         headerPanel.add(dateLabel, BorderLayout.EAST);
 
-        mainPanel.add(headerPanel, BorderLayout.NORTH);
+        add(headerPanel, BorderLayout.NORTH);
 
-        // =========== 中间登录表单区域 ===========
+        // =========== 中间表单区域 ===========
         JPanel centerPanel = new JPanel();
-        centerPanel.setLayout(new BoxLayout(centerPanel, BoxLayout.Y_AXIS));
-        centerPanel.setBorder(BorderFactory.createEmptyBorder(40, 60, 30, 60));
-        centerPanel.setBackground(new Color(245, 245, 245));
+        centerPanel.setLayout(new GridBagLayout());
+        centerPanel.setBackground(Color.WHITE);
 
-        // 表单容器
-        JPanel formContainer = new JPanel();
-        formContainer.setLayout(new GridLayout(5, 2, 15, 15));
-        formContainer.setBackground(new Color(245, 245, 245));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
 
-        // 用户名行
+        // 用户名标签
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.EAST;
         JLabel userLabel = new JLabel("用户名:");
-        userLabel.setFont(new Font("微软雅黑", Font.PLAIN, 16));
-        userLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-        usernameField = new JTextField();
+        userLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+        centerPanel.add(userLabel, gbc);
+
+        // 用户名输入框
+        gbc.gridx = 1;
+        gbc.gridy = 0;
+        gbc.weightx = 1.0;
+        usernameField = new JTextField(15);
         usernameField.setFont(new Font("微软雅黑", Font.PLAIN, 14));
-        usernameField.setPreferredSize(new Dimension(200, 35));
+        centerPanel.add(usernameField, gbc);
 
-        // 密码行
-        JLabel passLabel = new JLabel("密码:");
-        passLabel.setFont(new Font("微软雅黑", Font.PLAIN, 16));
-        passLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-        passwordField = new JPasswordField();
+        // 密码标签
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        gbc.weightx = 0;
+        JLabel passLabel = new JLabel("密  码:");
+        passLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+        centerPanel.add(passLabel, gbc);
+
+        // 密码输入框
+        gbc.gridx = 1;
+        gbc.gridy = 1;
+        gbc.weightx = 1.0;
+        passwordField = new JPasswordField(15);
         passwordField.setFont(new Font("微软雅黑", Font.PLAIN, 14));
-        passwordField.setPreferredSize(new Dimension(200, 35));
+        centerPanel.add(passwordField, gbc);
 
-        // 用户类型行
+        // 用户类型标签
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.weightx = 0;
         JLabel typeLabel = new JLabel("用户类型:");
-        typeLabel.setFont(new Font("微软雅黑", Font.PLAIN, 16));
-        typeLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        typeLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
+        centerPanel.add(typeLabel, gbc);
+
+        // 用户类型下拉框
+        gbc.gridx = 1;
+        gbc.gridy = 2;
+        gbc.weightx = 1.0;
         userTypeCombo = new JComboBox<>(UserType.values());
         userTypeCombo.setFont(new Font("微软雅黑", Font.PLAIN, 14));
-        userTypeCombo.setPreferredSize(new Dimension(200, 35));
+        centerPanel.add(userTypeCombo, gbc);
 
-        // 记住密码行（放在第4行，第2列）
+        // 记住密码复选框（跨越两列）
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        gbc.anchor = GridBagConstraints.CENTER;
         rememberCheckBox = new JCheckBox("记住密码");
         rememberCheckBox.setFont(new Font("微软雅黑", Font.PLAIN, 14));
-        rememberCheckBox.setBackground(new Color(245, 245, 245));
+        rememberCheckBox.setBackground(Color.WHITE);
+        centerPanel.add(rememberCheckBox, gbc);
 
-        // 占位符（为了对齐）
-        JLabel placeholder = new JLabel("");
-
-        // 添加组件到表单
-        formContainer.add(userLabel);
-        formContainer.add(usernameField);
-        formContainer.add(passLabel);
-        formContainer.add(passwordField);
-        formContainer.add(typeLabel);
-        formContainer.add(userTypeCombo);
-        formContainer.add(placeholder); // 空标签占位
-        formContainer.add(rememberCheckBox);
-
-        centerPanel.add(formContainer);
-        centerPanel.add(Box.createVerticalStrut(20));
+        add(centerPanel, BorderLayout.CENTER);
 
         // =========== 底部按钮区域 ===========
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        buttonPanel.setBackground(new Color(245, 245, 245));
+        JPanel buttonPanel = new JPanel();
+        buttonPanel.setLayout(new FlowLayout(FlowLayout.CENTER, 20, 15));
+        buttonPanel.setBackground(Color.WHITE);
 
         // 登录按钮
         JButton loginButton = new JButton("登录");
+        loginButton.setPreferredSize(new Dimension(100, 35));
+        loginButton.setFont(new Font("微软雅黑", Font.BOLD, 14));
         loginButton.setBackground(new Color(70, 130, 180));
-        loginButton.setForeground(Color.WHITE);
-        loginButton.setFont(new Font("微软雅黑", Font.BOLD, 16));
+        loginButton.setForeground(Color.BLACK);
         loginButton.setFocusPainted(false);
-        loginButton.setPreferredSize(new Dimension(120, 40));
-        loginButton.addActionListener(e -> login());
+        loginButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                login();
+            }
+        });
 
         // 注册按钮
         JButton registerButton = new JButton("注册");
+        registerButton.setPreferredSize(new Dimension(100, 35));
+        registerButton.setFont(new Font("微软雅黑", Font.BOLD, 14));
         registerButton.setBackground(new Color(46, 139, 87));
-        registerButton.setForeground(Color.WHITE);
-        registerButton.setFont(new Font("微软雅黑", Font.BOLD, 16));
+        registerButton.setForeground(Color.BLACK);
         registerButton.setFocusPainted(false);
-        registerButton.setPreferredSize(new Dimension(120, 40));
-        registerButton.addActionListener(e -> showRegisterDialog());
+        registerButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                showRegisterDialog();
+            }
+        });
 
         // 重置按钮
         JButton resetButton = new JButton("重置");
+        resetButton.setPreferredSize(new Dimension(100, 35));
+        resetButton.setFont(new Font("微软雅黑", Font.BOLD, 14));
         resetButton.setBackground(new Color(205, 92, 92));
-        resetButton.setForeground(Color.WHITE);
-        resetButton.setFont(new Font("微软雅黑", Font.BOLD, 16));
+        resetButton.setForeground(Color.BLACK);
         resetButton.setFocusPainted(false);
-        resetButton.setPreferredSize(new Dimension(120, 40));
-        resetButton.addActionListener(e -> resetForm());
+        resetButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                resetForm();
+            }
+        });
 
         buttonPanel.add(loginButton);
         buttonPanel.add(registerButton);
         buttonPanel.add(resetButton);
 
-        centerPanel.add(buttonPanel);
-
-        mainPanel.add(centerPanel, BorderLayout.CENTER);
-
-        // =========== 底部信息区域 ===========
-        JPanel footerPanel = new JPanel(new BorderLayout());
-        footerPanel.setBackground(new Color(240, 240, 240));
-        footerPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(200, 200, 200)),
-                BorderFactory.createEmptyBorder(10, 20, 10, 20)
-        ));
-
-        // 左侧：版本信息
-        JLabel versionLabel = new JLabel("版本: V2.0 | 学生宿舍管理系统");
-        versionLabel.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-        versionLabel.setForeground(Color.GRAY);
-        footerPanel.add(versionLabel, BorderLayout.WEST);
-
-        // 右侧：退出按钮
-        JButton exitButton = new JButton("退出系统");
-        exitButton.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-        exitButton.setFocusPainted(false);
-        exitButton.addActionListener(e -> exitApplication());
-        footerPanel.add(exitButton, BorderLayout.EAST);
-
-        mainPanel.add(footerPanel, BorderLayout.SOUTH);
-
-        add(mainPanel);
+        add(buttonPanel, BorderLayout.SOUTH);
 
         // 添加键盘快捷键
         setupKeyboardShortcuts();
@@ -224,7 +224,6 @@ public class LoginFrame extends JFrame {
     }
 
     private void setupListeners() {
-        // 添加窗口监听器
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override
             public void windowActivated(java.awt.event.WindowEvent e) {
@@ -236,78 +235,37 @@ public class LoginFrame extends JFrame {
     private void setupKeyboardShortcuts() {
         // Enter键登录
         getRootPane().registerKeyboardAction(
-                e -> login(),
+                new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        login();
+                    }
+                },
                 KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW
         );
 
         // ESC键重置
         getRootPane().registerKeyboardAction(
-                e -> resetForm(),
+                new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        resetForm();
+                    }
+                },
                 KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
-                JComponent.WHEN_IN_FOCUSED_WINDOW
-        );
-
-        // Ctrl+R 注册
-        getRootPane().registerKeyboardAction(
-                e -> showRegisterDialog(),
-                KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_R, java.awt.event.InputEvent.CTRL_DOWN_MASK),
                 JComponent.WHEN_IN_FOCUSED_WINDOW
         );
     }
 
     private void loadRememberedUser() {
-        // 模拟加载记住的用户
-        // 实际开发中可以读取配置文件
-        try {
-            // 检查是否有保存的用户信息
-            java.util.Properties props = new java.util.Properties();
-            java.io.File configFile = new java.io.File("login_config.properties");
-
-            if (configFile.exists()) {
-                props.load(new java.io.FileInputStream(configFile));
-                String savedUser = props.getProperty("username", "");
-                String savedType = props.getProperty("usertype", "STUDENT");
-
-                if (!savedUser.isEmpty()) {
-                    usernameField.setText(savedUser);
-                    rememberCheckBox.setSelected(true);
-
-                    // 设置用户类型
-                    try {
-                        UserType type = UserType.valueOf(savedType);
-                        userTypeCombo.setSelectedItem(type);
-                    } catch (IllegalArgumentException e) {
-                        userTypeCombo.setSelectedIndex(0);
-                    }
-
-                    passwordField.requestFocus();
-                }
-            }
-        } catch (Exception e) {
-            // 忽略错误，使用默认值
-        }
+        // 简化版本：不实现记住密码功能
+        // 在实际项目中可以添加
     }
 
     private void saveRememberedUser() {
-        if (rememberCheckBox.isSelected()) {
-            try {
-                java.util.Properties props = new java.util.Properties();
-                props.setProperty("username", usernameField.getText().trim());
-                props.setProperty("usertype", ((UserType)userTypeCombo.getSelectedItem()).name());
-
-                props.store(new java.io.FileOutputStream("login_config.properties"),
-                        "Login Configuration");
-            } catch (Exception e) {
-                System.err.println("保存登录配置失败: " + e.getMessage());
-            }
-        } else {
-            // 清除保存的配置
-            java.io.File configFile = new java.io.File("login_config.properties");
-            if (configFile.exists()) {
-                configFile.delete();
-            }
-        }
+        // 简化版本：不实现记住密码功能
+        // 在实际项目中可以添加
     }
 
     private void login() {
@@ -323,137 +281,35 @@ public class LoginFrame extends JFrame {
             return;
         }
 
-        // 创建简单的加载提示
-        final JOptionPane optionPane = new JOptionPane("正在验证登录信息...",
-                JOptionPane.INFORMATION_MESSAGE,
-                JOptionPane.DEFAULT_OPTION,
-                null,
-                new Object[]{},
-                null);
+        // 直接验证
+        UserManager userManager = UserManager.getInstance();
+        User user = userManager.login(username, password, userType);
 
-        final JDialog dialog = optionPane.createDialog(this, "请稍候");
-        dialog.setModal(true);
+        if (user != null) {
+            currentUser = user;
 
-        // 在后台线程进行验证
-        new Thread(() -> {
-            try {
-                Thread.sleep(800); // 模拟验证时间
-
-                UserManager userManager = UserManager.getInstance();
-                final User user = userManager.login(username, password, userType);
-
-                SwingUtilities.invokeLater(() -> {
-                    dialog.dispose();
-
-                    if (user != null) {
-                        currentUser = user;
-                        saveRememberedUser();
-
-                        JOptionPane.showMessageDialog(this,
-                                String.format("登录成功！\n欢迎您，%s！",
-                                        user.getName() != null ? user.getName() : user.getUsername()),
-                                "登录成功",
-                                JOptionPane.INFORMATION_MESSAGE);
-
-                        openMainSystem();
-                    } else {
-                        JOptionPane.showMessageDialog(this,
-                                "登录失败！用户名、密码或用户类型错误。",
-                                "登录失败",
-                                JOptionPane.ERROR_MESSAGE);
-                        passwordField.setText("");
-                        passwordField.requestFocus();
-                    }
-                });
-
-            } catch (Exception e) {
-                SwingUtilities.invokeLater(() -> {
-                    dialog.dispose();
-                    JOptionPane.showMessageDialog(this,
-                            "登录过程出现错误: " + e.getMessage(),
-                            "系统错误",
-                            JOptionPane.ERROR_MESSAGE);
-                });
-            }
-        }).start();
-
-        dialog.setVisible(true);
-    }
-
-    private JDialog createLoadingDialog(String message) {
-        JDialog dialog = new JDialog(this, "请稍候", true);
-        dialog.setSize(300, 150);
-        dialog.setLocationRelativeTo(this);
-        dialog.setUndecorated(true);
-        dialog.setLayout(new BorderLayout());
-
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
-        JLabel messageLabel = new JLabel(message, SwingConstants.CENTER);
-        messageLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
-
-        JProgressBar progressBar = new JProgressBar();
-        progressBar.setIndeterminate(true);
-
-        panel.add(messageLabel, BorderLayout.CENTER);
-        panel.add(progressBar, BorderLayout.SOUTH);
-
-        dialog.add(panel);
-        dialog.pack();
-
-        // 设置dialog关闭时不退出程序
-        dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
-        return dialog;
-    }
-
-    private void openMainSystem() {
-        // 直接在主线程中创建和显示主界面
-        try {
-            // 创建主系统界面
-            MainFrame mainFrame = new MainFrame();
-
-            // 根据用户类型设置标题
-            if (currentUser != null) {
-                String userTypeStr = currentUser.getUserType().getDescription();
-                String userName = currentUser.getName() != null ?
-                        currentUser.getName() : currentUser.getUsername();
-                mainFrame.setTitle("学生宿舍管理系统 - " + userTypeStr + "(" + userName + ")");
-            }
-
-            // 显示主窗口
-            mainFrame.setVisible(true);
-
-            // 关闭登录窗口
-            dispose();
-
-        } catch (Exception e) {
             JOptionPane.showMessageDialog(this,
-                    "启动主系统失败: " + e.getMessage(),
-                    "系统错误",
+                    String.format("登录成功！\n欢迎您，%s！",
+                            user.getName() != null ? user.getName() : user.getUsername()),
+                    "登录成功",
+                    JOptionPane.INFORMATION_MESSAGE);
+
+            // 打开主系统
+            openMainSystem();
+
+        } else {
+            JOptionPane.showMessageDialog(this,
+                    "登录失败！用户名、密码或用户类型错误。",
+                    "登录失败",
                     JOptionPane.ERROR_MESSAGE);
-            e.printStackTrace();
+            passwordField.setText("");
+            passwordField.requestFocus();
         }
-    }
-
-    private void showErrorDialog(String message) {
-        JOptionPane.showMessageDialog(this, message,
-                "错误", JOptionPane.ERROR_MESSAGE);
-    }
-
-    private void showSuccessDialog(String title, String message) {
-        JOptionPane.showMessageDialog(this, message,
-                title, JOptionPane.INFORMATION_MESSAGE);
     }
 
     private void showRegisterDialog() {
         RegisterDialog registerDialog = new RegisterDialog(this);
         registerDialog.setVisible(true);
-
-        if (registerDialog.isRegistered()) {
-            // 注册成功后，可以自动填充用户名
-            // 这里可以添加相关逻辑
-        }
     }
 
     private void resetForm() {
@@ -477,6 +333,36 @@ public class LoginFrame extends JFrame {
         }
     }
 
+    private void openMainSystem() {
+        EventQueue.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    // 传递当前用户信息到MainFrame
+                    MainFrame mainFrame = new MainFrame(currentUser);
+
+                    // 根据用户类型设置标题
+                    String userTypeStr = currentUser.getUserType().getDescription();
+                    String userName = currentUser.getName() != null ?
+                            currentUser.getName() : currentUser.getUsername();
+                    mainFrame.setTitle("学生宿舍管理系统 - " + userTypeStr + "(" + userName + ")");
+
+                    // 显示主窗口
+                    mainFrame.setVisible(true);
+
+                    // 关闭登录窗口
+                    dispose();
+
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(LoginFrame.this,
+                            "启动主系统失败: " + e.getMessage(),
+                            "系统错误",
+                            JOptionPane.ERROR_MESSAGE);
+                    e.printStackTrace();
+                }
+            }
+        });
+    }
 
     public User getCurrentUser() {
         return currentUser;
@@ -486,25 +372,17 @@ public class LoginFrame extends JFrame {
         // 设置系统外观
         try {
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-
-            // 设置全局字体
-            Font font = new Font("微软雅黑", Font.PLAIN, 14);
-            java.util.Enumeration<Object> keys = UIManager.getDefaults().keys();
-            while (keys.hasMoreElements()) {
-                Object key = keys.nextElement();
-                Object value = UIManager.get(key);
-                if (value instanceof Font) {
-                    UIManager.put(key, font);
-                }
-            }
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         // 启动登录界面
-        SwingUtilities.invokeLater(() -> {
-            LoginFrame loginFrame = new LoginFrame();
-            loginFrame.setVisible(true);
+        EventQueue.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                LoginFrame loginFrame = new LoginFrame();
+                loginFrame.setVisible(true);
+            }
         });
     }
 }
