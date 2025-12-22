@@ -1,132 +1,143 @@
-
 package model;
 
-import java.util.Date;
+import java.util.Optional;
 
 /**
  * 宿舍房间实体类
+ * 表示宿舍的基本信息（楼栋、房间号、房型、床位、宿舍长等）
  */
+
 public class Room {
-    private int id; // 宿舍ID
-    private String building; // 楼栋
-    private String roomNumber; // 宿舍号
-    private String roomType; // 房间类型
-    private int capacity; // 容纳人数
-    private int currentCount; // 当前人数
-    private String manager; // 管理员
-    private String managerPhone; // 管理员电话
-    private String status; // 宿舍状态
-    private Date createDate; // 创建日期
+    private String room_number;    // 宿舍号，如 "101"
+    private String building;       // 宿舍楼，如 "A栋"
+    private String room_type;    // 房间类型，如 四人间
+    private int total_beds;        // 床位总数
+    private int occupied;          // 已住人数
+    private int available_beds;    // 空余床位
+    private String monitor;        // 宿舍长，可能为空
+    private String phone;          // 联系电话，可能为空
+    private int hygiene_score;     // 卫生评分
+    private String status;     // 状态，如 已住满、有空位、空置
+    private String remarks;        // 备注，可能为空
 
-    public Room() {}
+    // 枚举：房间类型
+    /**
+     * 房间类型枚举
+     * SINGLE - 单人间
+     * DOUBLE - 二人间
+     * QUAD   - 四人间
+     * SIX    - 六人间
+     */
+    /*
+    public enum RoomType {
+        SINGLE("单人间"),
+        DOUBLE("二人间"),
+        QUAD("四人间"),
+        SIX("六人间");
 
-    public Room(int id, String building, String roomNumber, String roomType, int capacity, int currentCount, String manager, String managerPhone, String status, Date createDate) {
-        this.id = id;
+        private final String description;
+
+        RoomType(String description) {
+            this.description = description;
+        }
+
+
+        public String getDescription() {
+            return description;
+        }
+    }
+
+    // 枚举：房间状态
+
+    public enum RoomStatus {
+        FULL("已住满"),
+        AVAILABLE("有空位"),
+        VACANT("空置");
+
+        private final String description;
+
+        RoomStatus(String description) {
+            this.description = description;
+        }
+
+
+        public String getDescription() {
+            return description;
+        }
+    }
+*/
+    /**
+     * 有参构造函数，创建一个完整的 Room 实例
+     * 参数顺序与数据库列对应：room_number, building, room_type, total_beds, occupied, available_beds, monitor, phone, hygiene_score, status, remarks
+     */
+    public Room(String room_number, String building, String room_type, int total_beds, int occupied, int available_beds, String monitor, String phone, int hygiene_score, String status, String remarks) {
+        this.room_number = room_number;
         this.building = building;
-        this.roomNumber = roomNumber;
-        this.roomType = roomType;
-        this.capacity = capacity;
-        this.currentCount = currentCount;
-        this.manager = manager;
-        this.managerPhone = managerPhone;
+        this.room_type = room_type;
+        this.total_beds = total_beds;
+        this.occupied = occupied;
+        this.available_beds = available_beds;
+        this.monitor = monitor;
+        this.phone = phone;
+        this.hygiene_score = hygiene_score;
         this.status = status;
-        this.createDate = createDate;
+        this.remarks = remarks;
     }
 
-    // getter和setter方法
-    public int getId() {
-        return id;
-    }
+    // Getter / Setter（snake_case，对应数据库列）
+    public String getRoom_number() { return room_number; }
+    public void setRoom_number(String room_number) { this.room_number = room_number; }
 
-    public void setId(int id) {
-        this.id = id;
-    }
+    public String getBuilding() { return building; }
+    public void setBuilding(String building) { this.building = building; }
 
-    public String getBuilding() {
-        return building;
-    }
+    public String getRoom_type() { return room_type; }
+    public void setRoom_type(String room_type) { this.room_type = room_type; }
 
-    public void setBuilding(String building) {
-        this.building = building;
-    }
+    public int getTotal_beds() { return total_beds; }
+    public void setTotal_beds(int total_beds) { this.total_beds = total_beds; }
 
-    public String getRoomNumber() {
-        return roomNumber;
-    }
+    public int getOccupied() { return occupied; }
+    public void setOccupied(int occupied) { this.occupied = occupied; }
 
-    public void setRoomNumber(String roomNumber) {
-        this.roomNumber = roomNumber;
-    }
+    public int getAvailable_beds() { return available_beds; }
+    public void setAvailable_beds(int available_beds) { this.available_beds = available_beds; }
 
-    public String getRoomType() {
-        return roomType;
-    }
+    public String getMonitor() { return monitor; }
+    public void setMonitor(String monitor) { this.monitor = monitor; }
 
-    public void setRoomType(String roomType) {
-        this.roomType = roomType;
-    }
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
 
-    public int getCapacity() {
-        return capacity;
-    }
+    public int getHygiene_score() { return hygiene_score; }
+    public void setHygiene_score(int hygiene_score) { this.hygiene_score = hygiene_score; }
 
-    public void setCapacity(int capacity) {
-        this.capacity = capacity;
-    }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
-    public int getCurrentCount() {
-        return currentCount;
-    }
+    public String getRemarks() { return remarks; }
+    public void setRemarks(String remarks) { this.remarks = remarks; }
 
-    public void setCurrentCount(int currentCount) {
-        this.currentCount = currentCount;
-    }
-
-    public String getManager() {
-        return manager;
-    }
-
-    public void setManager(String manager) {
-        this.manager = manager;
-    }
-
-    public String getManagerPhone() {
-        return managerPhone;
-    }
-
-    public void setManagerPhone(String managerPhone) {
-        this.managerPhone = managerPhone;
-    }
-
-    public String getStatus() {
-        return status;
-    }
-
-    public void setStatus(String status) {
-        this.status = status;
-    }
-
-    public Date getCreateDate() {
-        return createDate;
-    }
-
-    public void setCreateDate(Date createDate) {
-        this.createDate = createDate;
-    }
-
+    /**
+     * 返回对象的字符串表示
+     */
+    /*
     @Override
     public String toString() {
         return "Room{" +
-                "id=" + id +
+                "room_number='" + room_number + '\'' +
                 ", building='" + building + '\'' +
-                ", roomNumber='" + roomNumber + '\'' +
-                ", roomType='" + roomType + '\'' +
-                ", capacity=" + capacity +
-                ", currentCount=" + currentCount +
-                ", manager='" + manager + '\'' +
-                ", managerPhone='" + managerPhone + '\'' +
-                ", status='" + status + '\'' +
-                ", createDate=" + createDate +
+                ", room_type=" + (room_type != null ? room_type.getDescription() : "") +
+                ", total_beds=" + total_beds +
+                ", occupied=" + occupied +
+                ", available_beds=" + available_beds +
+                ", monitor=" + getMonitor()+
+                ", phone=" + getPhone() +
+                ", hygiene_score=" + hygiene_score +
+                ", status=" + (status != null ? status.getDescription() : "") +
+                ", remarks=" + getRemarks() +
                 '}';
     }
+
+     */
 }
