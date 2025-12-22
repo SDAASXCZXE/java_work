@@ -1,6 +1,8 @@
 package model;
 
+import java.time.LocalDate;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * 学生实体类
@@ -14,13 +16,20 @@ public class Student {
     private String grade;  // 年级
     private String clazz;  // 班级
     private String phone;  // 电话
-    private Date inDate;  // 入学日期
+    private LocalDate inDate;  // 入学日期
+    
+    // 宿舍信息
+    private String roomNumber;  // 宿舍号
+    private String building;  // 楼栋
+    private int bedNumber;  // 床位号
+    private LocalDate checkInDate;  // 入住日期
+    private boolean isMonitor;  // 是否为宿舍长
 
     // 无参构造器
     public Student() {}
 
     // 有参构造器
-    public Student(String sno, String name, String gender, String college, String major, String grade, String clazz, String phone, Date inDate) {
+    public Student(String sno, String name, String gender, String college, String major, String grade, String clazz, String phone, LocalDate inDate) {
         this.sno = sno;
         this.name = name;
         this.gender = gender;
@@ -97,11 +106,84 @@ public class Student {
         this.phone = phone;
     }
 
-    public Date getInDate() {
+    public LocalDate getInDate() {
         return inDate;
     }
 
-    public void setInDate(Date inDate) {
+    public void setInDate(LocalDate inDate) {
         this.inDate = inDate;
+    }
+
+    public String getRoomNumber() {
+        return roomNumber;
+    }
+
+    public void setRoomNumber(String roomNumber) {
+        this.roomNumber = roomNumber;
+    }
+
+    public String getBuilding() {
+        return building;
+    }
+
+    public void setBuilding(String building) {
+        this.building = building;
+    }
+
+    public int getBedNumber() {
+        return bedNumber;
+    }
+
+    public void setBedNumber(int bedNumber) {
+        this.bedNumber = bedNumber;
+    }
+
+    public LocalDate getCheckInDate() {
+        return checkInDate;
+    }
+
+    public void setCheckInDate(LocalDate checkInDate) {
+        this.checkInDate = checkInDate;
+    }
+
+    public boolean isMonitor() {
+        return isMonitor;
+    }
+
+    public void setMonitor(boolean monitor) {
+        isMonitor = monitor;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        Student student = (Student) o;
+        return Objects.equals(sno, student.sno);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(sno);
+    }
+
+    @Override
+    public String toString() {
+        return "Student{" +
+                "sno='" + sno + '\'' +
+                ", name='" + name + '\'' +
+                ", gender='" + gender + '\'' +
+                ", college='" + college + '\'' +
+                ", major='" + major + '\'' +
+                ", grade='" + grade + '\'' +
+                ", clazz='" + clazz + '\'' +
+                ", phone='" + phone + '\'' +
+                ", inDate=" + inDate +
+                ", roomNumber='" + roomNumber + '\'' +
+                ", building='" + building + '\'' +
+                ", bedNumber=" + bedNumber +
+                ", checkInDate=" + checkInDate +
+                ", isMonitor=" + isMonitor +
+                '}';
     }
 }

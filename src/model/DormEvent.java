@@ -3,29 +3,24 @@ package model;
 import java.math.*;
 import java.time.*;
 import java.util.*;
-import java.util.function.Function;
+import uimodel.UserType;
 
 /**
- * 宿舍全能事件实体
- * 一行数据 = 任意业务场景的全量信息
+ * 宿舍事件日志实体
+ * 用于记录宿舍管理系统中的各种事件
  */
 public final class DormEvent {
 
     /* ===================== 业务域 ===================== */
     public enum BizType {
-        VISITOR, ATTENDANCE, REPAIR, HOLIDAY, MY_ATT,
-        ROOM_CHANGE, FEE, DISCIPLINE, NOTICE, SYSTEM_LOG
+        VISITOR, FEE, DISCIPLINE, NOTICE, SYSTEM_LOG
     }
 
     public enum Status {
-        PENDING, NORMAL, LATE, ABSENT, LEAVE,
-        PROCESSING, FINISHED, CANCELED, REJECTED, OVERDUE
+        PENDING, NORMAL, CANCELED, REJECTED
     }
 
     public enum IdType { ID_CARD, PASSPORT, STUDENT_CARD, WORK_CARD, OTHER }
-    public enum RepairType { WATER_ELEC, FURNITURE, NETWORK, HVAC, OTHER }
-    public enum HolidayType { LEAVE, BACK }
-    public enum AttDirection { IN, OUT }
 
     /* ===================== 字段 ===================== */
     private final String          id;               // 业务主键
@@ -46,34 +41,13 @@ public final class DormEvent {
     private final Optional<String>  guestReason;
     private final Optional<LocalDateTime> guestLeave;
 
-    /* ---- 考勤域 ---- */
-    private final Optional<LocalDate> attDate;
-    private final Optional<LocalTime> attTime;
-    private final Optional<AttDirection> attDirection;
-
-    /* ---- 报修域 ---- */
-    private final Optional<RepairType> repairType;
-    private final Optional<String>  repairDesc;
-    private final Optional<String>  repairImgs;     // 逗号分隔 URL
-    private final Optional<BigDecimal> repairProgress;
-    private final Optional<BigDecimal> repairEvaluate; // 0-5 星
-    private final Optional<BigDecimal> repairFee;      // 维修费用
-
-    /* ---- 假期域 ---- */
-    private final Optional<HolidayType> holidayType;
-    private final Optional<LocalDate> holidayLeave;
-    private final Optional<LocalDate> holidayBack;
-    private final Optional<String>  holidayDest;
-    private final Optional<String>  holidayContact;
-    private final Optional<String>  holidayPhone;
-
     /* ---- 费用域 ---- */
     private final Optional<BigDecimal> feeAmount;
     private final Optional<String>  feeItem;
 
     /* ---- 权限 & 日志 ---- */
     private final int               privilegeMask;  // 位掩码
-    private final Optional<String>  logDetail;
+    private final Optional<String>  logDetail;     // 日志详情
 
     /* ===================== 构造器 ===================== */
     private DormEvent(Builder b) {
@@ -94,24 +68,6 @@ public final class DormEvent {
         this.guestReason = Optional.ofNullable(b.guestReason);
         this.guestLeave  = Optional.ofNullable(b.guestLeave);
 
-        this.attDate      = Optional.ofNullable(b.attDate);
-        this.attTime      = Optional.ofNullable(b.attTime);
-        this.attDirection = Optional.ofNullable(b.attDirection);
-
-        this.repairType    = Optional.ofNullable(b.repairType);
-        this.repairDesc    = Optional.ofNullable(b.repairDesc);
-        this.repairImgs    = Optional.ofNullable(b.repairImgs);
-        this.repairProgress= Optional.ofNullable(b.repairProgress);
-        this.repairEvaluate= Optional.ofNullable(b.repairEvaluate);
-        this.repairFee     = Optional.ofNullable(b.repairFee);
-
-        this.holidayType   = Optional.ofNullable(b.holidayType);
-        this.holidayLeave  = Optional.ofNullable(b.holidayLeave);
-        this.holidayBack   = Optional.ofNullable(b.holidayBack);
-        this.holidayDest   = Optional.ofNullable(b.holidayDest);
-        this.holidayContact= Optional.ofNullable(b.holidayContact);
-        this.holidayPhone  = Optional.ofNullable(b.holidayPhone);
-
         this.feeAmount = Optional.ofNullable(b.feeAmount);
         this.feeItem   = Optional.ofNullable(b.feeItem);
 
@@ -119,7 +75,7 @@ public final class DormEvent {
         this.logDetail     = Optional.ofNullable(b.logDetail);
     }
 
-    /* ===================== 14 个业务工厂 ===================== */
+    /* ===================== 业务工厂 ===================== */
     public static DormEvent newVisitor(String sno, String building, String room,
                                        String gName, IdType gIdType, String gIdNo, String gPhone,
                                        String reason, LocalDateTime come, LocalDateTime leave) {
@@ -127,45 +83,6 @@ public final class DormEvent {
                 .guestName(gName).guestIdType(gIdType).guestIdNo(gIdNo)
                 .guestPhone(gPhone).guestReason(reason).guestLeave(leave)
                 .status(Status.NORMAL).build();
-    }
-
-    public static DormEvent newAttendance(String sno, String building, String room,
-                                          LocalDate date, LocalTime time, AttDirection dir, Status status) {
-        return full(BizType.ATTENDANCE, "A" + date.toString().replace("-", "") + sno, sno, building, room)
-                .attDate(date).attTime(time).attDirection(dir).status(status).build();
-    }
-
-    public static DormEvent newRepair(String sno, String building, String room,
-                                      RepairType type, String desc, String imgUrls) {
-        return full(BizType.REPAIR, "R" + timestamp(), sno, building, room)
-                .repairType(type).repairDesc(desc).repairImgs(imgUrls)
-                .repairProgress(BigDecimal.ZERO).status(Status.PENDING).build();
-    }
-
-    public static DormEvent newHoliday(String sno, String building, String room,
-                                       HolidayType hType, LocalDate leave, LocalDate back,
-                                       String dest, String contact, String phone) {
-        return full(BizType.HOLIDAY, "H" + leave.toString().replace("-", "") + sno,
-                sno, building, room)
-                .holidayType(hType).holidayLeave(leave).holidayBack(back)
-                .holidayDest(dest).holidayContact(contact).holidayPhone(phone)
-                .status(Status.PENDING).build();
-    }
-
-    public static DormEvent myAttSummary(String sno, String building, String room,
-                                         long monthN, long monthL, long monthA,
-                                         long totalN, long totalL, long totalA) {
-        String remark = String.format("月正常=%d|月晚归=%d|月未归=%d|总正常=%d|总晚归=%d|总未归=%d",
-                monthN, monthL, monthA, totalN, totalL, totalA);
-        return full(BizType.MY_ATT, "M" + YearMonth.now().toString().replace("-", "") + sno,
-                sno, building, room).status(Status.NORMAL).remark(remark).build();
-    }
-
-    public static DormEvent roomChange(String sno, String oldBuilding, String oldRoom,
-                                       String newBuilding, String newRoom, String reason) {
-        return full(BizType.ROOM_CHANGE, "C" + timestamp(), sno, oldBuilding, oldRoom)
-                .remark("旧=" + oldBuilding + oldRoom + "|新=" + newBuilding + newRoom + "|原因=" + reason)
-                .status(Status.PENDING).build();
     }
 
     public static DormEvent fee(String sno, String building, String room,
@@ -196,29 +113,14 @@ public final class DormEvent {
         return toBuilder().status(newStatus).build();
     }
 
-    public DormEvent repairProgress(int percent) {
-        return toBuilder()
-                .repairProgress(BigDecimal.valueOf(percent))
-                .status(percent == 100 ? Status.FINISHED : Status.PROCESSING)
-                .build();
-    }
-
-    public DormEvent repairEvaluate(BigDecimal star) {
-        return toBuilder().repairEvaluate(star).build();
-    }
-
     public DormEvent guestLeaveNow() {
         return toBuilder().guestLeave(LocalDateTime.now()).build();
-    }
-
-    public DormEvent holidayApprove(LocalDate back) {
-        return toBuilder().holidayBack(back).status(Status.NORMAL).build();
     }
 
     /* ===================== 权限工具 ===================== */
     public boolean canSee(String viewerSno, UserType viewerType, String viewerBuilding) {
         if (viewerType == UserType.ADMIN) return true;
-        if (viewerType == UserType.DORM_ADMIN)
+        if (viewerType == UserType.DORM_MANAGER)
             return Objects.equals(building, viewerBuilding);
         return Objects.equals(sno, viewerSno); // 学生只能看自己
     }
@@ -240,24 +142,6 @@ public final class DormEvent {
     public Optional<String>  getGuestPhone()  { return guestPhone; }
     public Optional<String>  getGuestReason() { return guestReason; }
     public Optional<LocalDateTime> getGuestLeave() { return guestLeave; }
-
-    public Optional<LocalDate>     getAttDate()      { return attDate; }
-    public Optional<LocalTime>     getAttTime()      { return attTime; }
-    public Optional<AttDirection>  getAttDirection() { return attDirection; }
-
-    public Optional<RepairType> getRepairType()    { return repairType; }
-    public Optional<String>     getRepairDesc()    { return repairDesc; }
-    public Optional<String>     getRepairImgs()    { return repairImgs; }
-    public Optional<BigDecimal> getRepairProgress(){ return repairProgress; }
-    public Optional<BigDecimal> getRepairEvaluate(){ return repairEvaluate; }
-    public Optional<BigDecimal> getRepairFee()     { return repairFee; }
-
-    public Optional<HolidayType> getHolidayType()   { return holidayType; }
-    public Optional<LocalDate>   getHolidayLeave()  { return holidayLeave; }
-    public Optional<LocalDate>   getHolidayBack()   { return holidayBack; }
-    public Optional<String>      getHolidayDest()   { return holidayDest; }
-    public Optional<String>      getHolidayContact(){ return holidayContact; }
-    public Optional<String>      getHolidayPhone()  { return holidayPhone; }
 
     public Optional<BigDecimal> getFeeAmount() { return feeAmount; }
     public Optional<String>     getFeeItem()   { return feeItem; }
@@ -286,16 +170,9 @@ public final class DormEvent {
         private Status        status     = Status.PENDING;
         private boolean       deleted    = false;
         private String        remark;
-        private LocalDate     dateOpt, backDate;
-        private LocalTime     timeOpt;
         private String        guestName, guestPhone, guestIdNo, guestReason;
+        private IdType        guestIdType;
         private LocalDateTime guestLeave;
-        private AttDirection  attDirection;
-        private RepairType    repairType;
-        private String        repairDesc, repairImgs;
-        private BigDecimal    repairProgress, repairEvaluate, repairFee;
-        private HolidayType   holidayType;
-        private String        holidayDest, holidayContact, holidayPhone;
         private BigDecimal    feeAmount;
         private String        feeItem;
         private int           privilegeMask = 0;
@@ -307,10 +184,40 @@ public final class DormEvent {
         }
         /* 已有事件修改 */
         Builder(DormEvent e) {
-            // 全字段拷贝，省略
+            this.bizType = e.bizType;
+            this.id = e.id;
+            this.sno = e.sno;
+            this.adminNo = e.adminNo;
+            this.roomNum = e.roomNum;
+            this.building = e.building;
+            this.happenTime = e.happenTime;
+            this.status = e.status;
+            this.deleted = e.deleted;
+            this.guestName = e.guestName.orElse(null);
+            this.guestIdType = e.guestIdType.orElse(null);
+            this.guestIdNo = e.guestIdNo.orElse(null);
+            this.guestPhone = e.guestPhone.orElse(null);
+            this.guestReason = e.guestReason.orElse(null);
+            this.guestLeave = e.guestLeave.orElse(null);
+            this.feeAmount = e.feeAmount.orElse(null);
+            this.feeItem = e.feeItem.orElse(null);
+            this.privilegeMask = e.privilegeMask;
+            this.logDetail = e.logDetail.orElse(null);
         }
 
         /* 链式 setter 返回 Builder，最后 build() */
+        public Builder adminNo(String adminNo) { this.adminNo = adminNo; return this; }
+        public Builder status(Status status) { this.status = status; return this; }
+        public Builder guestName(String guestName) { this.guestName = guestName; return this; }
+        public Builder guestIdType(IdType guestIdType) { this.guestIdType = guestIdType; return this; }
+        public Builder guestIdNo(String guestIdNo) { this.guestIdNo = guestIdNo; return this; }
+        public Builder guestPhone(String guestPhone) { this.guestPhone = guestPhone; return this; }
+        public Builder guestReason(String guestReason) { this.guestReason = guestReason; return this; }
+        public Builder guestLeave(LocalDateTime guestLeave) { this.guestLeave = guestLeave; return this; }
+        public Builder feeAmount(BigDecimal feeAmount) { this.feeAmount = feeAmount; return this; }
+        public Builder feeItem(String feeItem) { this.feeItem = feeItem; return this; }
+        public Builder logDetail(String logDetail) { this.logDetail = logDetail; return this; }
+        public Builder remark(String remark) { this.logDetail = remark; return this; } // alias for logDetail
         public DormEvent build() { return new DormEvent(this); }
     }
 }
