@@ -37,7 +37,7 @@ public class StudentDaoImpl implements StudentDao {
                 s.setGrade(rs.getString("grade"));
                 s.setClazz(rs.getString("class"));
                 s.setPhone(rs.getString("phone"));
-                s.setInDate(rs.getDate("in_date"));
+                s.setInDate(rs.getDate("in_date").toLocalDate());
                 list.add(s);
             }
         } catch (Exception e) {
@@ -63,7 +63,7 @@ public class StudentDaoImpl implements StudentDao {
             ps.setString(6, s.getGrade());
             ps.setString(7, s.getClazz());
             ps.setString(8, s.getPhone());
-            ps.setDate(9, new java.sql.Date(s.getInDate().getTime()));
+            ps.setDate(9, java.sql.Date.valueOf(s.getInDate()));
 
             ps.executeUpdate();
         }

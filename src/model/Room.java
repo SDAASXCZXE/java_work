@@ -27,7 +27,8 @@ public class Room {
         SINGLE("单人间", 1),
         DOUBLE("二人间", 2),
         QUAD("四人间", 4),
-        SIX("六人间", 6);
+        SIX("六人间", 6),
+        EIGHT("八人间", 8);
 
         private final String description;
         private final int bedCount;
@@ -44,13 +45,24 @@ public class Room {
         public int getBedCount() {
             return bedCount;
         }
+        
+        // 根据描述获取枚举值
+        public static RoomType fromDescription(String description) {
+            for (RoomType type : RoomType.values()) {
+                if (type.getDescription().equals(description)) {
+                    return type;
+                }
+            }
+            throw new IllegalArgumentException("无效的房间类型: " + description);
+        }
     }
 
     // 房间状态枚举
     public enum RoomStatus {
         FULL("已住满"),
         AVAILABLE("有空位"),
-        VACANT("空置");
+        VACANT("空置"),
+        MAINTENANCE("维修中");
 
         private final String description;
 
@@ -60,6 +72,16 @@ public class Room {
 
         public String getDescription() {
             return description;
+        }
+        
+        // 根据描述获取枚举值
+        public static RoomStatus fromDescription(String description) {
+            for (RoomStatus status : RoomStatus.values()) {
+                if (status.getDescription().equals(description)) {
+                    return status;
+                }
+            }
+            throw new IllegalArgumentException("无效的房间状态: " + description);
         }
     }
     

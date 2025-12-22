@@ -1,4 +1,6 @@
 package ui;
+
+import java.time.LocalDate;
 import java.sql.*;
 import service.*;
 import model.Student;
@@ -265,7 +267,7 @@ public class StudentPanel extends JPanel {
             student.setClazz(fields[6].getText().trim());
             student.setPhone(fields[7].getText().trim());
             // 注意：紧急联系人相关字段可能需要在Student模型中添加
-            student.setInDate(new Date());
+            student.setInDate(LocalDate.now());
 
             // 调用业务层添加学生
             StudentService studentService = new StudentServiceImpl();
