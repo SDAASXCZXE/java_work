@@ -1,13 +1,29 @@
+import ui.LoginFrame;
+import javax.swing.*;
 
 
 
 import ui.MainFrame;
+import util.DBUtil;
 
 /**
- * 程序入口
+ * 应用程序主启动类
  */
 public class App {
     public static void main(String[] args) {
-        new MainFrame();
+        // 设置Swing外观
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // 启动登录界面
+        SwingUtilities.invokeLater(() -> {
+            LoginFrame loginFrame = new LoginFrame();
+            loginFrame.setVisible(true);
+        });
+
     }
 }
+//cxx56556
