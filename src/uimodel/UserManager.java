@@ -15,7 +15,9 @@ public class UserManager {
     private UserManager() {
         users = new ArrayList<>();
         loadUsers();
-        initializeDefaultUsers();
+        if (users.isEmpty()) {
+            initializeDefaultUsers();
+        }
     }
 
     public static synchronized UserManager getInstance() {
@@ -29,21 +31,20 @@ public class UserManager {
      * 初始化默认用户
      */
     private void initializeDefaultUsers() {
-        if (users.isEmpty()) {
-            // 添加默认管理员账户
-            users.add(new User("admin", "admin123", UserType.ADMIN,
-                    null, "系统管理员", "13800000000", "admin@dorm.com"));
+        // 添加默认管理员账户
+        users.add(new User("admin", "admin123", UserType.ADMIN,
+                null, "系统管理员", "13800000000", "admin@dorm.com"));
 
-            // 添加默认宿舍管理员账户
-            users.add(new User("manager", "manager123", UserType.DORM_MANAGER,
-                    null, "宿舍管理员", "13811111111", "manager@dorm.com"));
+        // 添加默认宿舍管理员账户
+        users.add(new User("manager", "manager123", UserType.DORM_MANAGER,
+                null, "宿舍管理员", "13811111111", "manager@dorm.com"));
 
-            // 添加默认学生账户
-            users.add(new User("student", "student123", UserType.STUDENT,
-                    "20230001", "张三", "13822222222", "student@school.com"));
+        // 添加默认学生账户
+        users.add(new User("student", "student123", UserType.STUDENT,
+                "20230001", "张三", "13822222222", "student@school.com"));
 
-            saveUsers();
-        }
+        // 保存到文件
+        saveUsers();
     }
 
     /**
@@ -57,7 +58,7 @@ public class UserManager {
         }
 
         // 检查学号是否已存在（仅对学生用户）
-        if (userType == UserType.STUDENT && studentId != null) {
+        if (userType == UserType.STUDENT && studentId != null && !studentId.trim().isEmpty()) {
             for (User user : users) {
                 if (user.getUserType() == UserType.STUDENT &&
                         studentId.equals(user.getStudentId())) {
@@ -66,29 +67,70 @@ public class UserManager {
             }
         }
 
+        // 创建新用户
         User newUser = new User(username, password, userType, studentId, name, phone, email);
         users.add(newUser);
+
+        // 保存到文件
         return saveUsers();
+    }
+
+    /**
+     * 加载用户数据
+     */
+    @SuppressWarnings("unchecked")
+    private void loadUsers() {
+        File file = new File(USER_DATA_FILE);
+
+        if (file.exists() && file.length() > 0) {
+            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
+                Object obj = ois.readObject();
+                if (obj instanceof List) {
+                    List<User> loadedUsers = (List<User>) obj;
+                    if (loadedUsers != null) {
+                        users.clear();
+                        users.addAll(loadedUsers);
+                    }
+                }
+            } catch (Exception e) {
+                users = new ArrayList<>();
+            }
+        } else {
+            users = new ArrayList<>();
+        }
+    }
+
+    /**
+     * 保存用户数据
+     */
+    private boolean saveUsers() {
+        File file = new File(USER_DATA_FILE);
+        File parentDir = file.getParentFile();
+
+        // 确保目录存在
+        if (parentDir != null && !parentDir.exists()) {
+            parentDir.mkdirs();
+        }
+
+        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(file))) {
+            oos.writeObject(users);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
      * 用户登录验证
      */
     public User login(String username, String password, UserType userType) {
-        System.out.println("尝试登录 - 用户名: " + username + ", 类型: " + userType);
-
         for (User user : users) {
-            System.out.println("检查用户: " + user.getUsername() + ", 类型: " + user.getUserType());
-
             if (user.getUsername().equals(username) &&
                     user.getPassword().equals(password) &&
                     user.getUserType() == userType) {
-                System.out.println("登录成功: " + username);
                 return user;
             }
         }
-
-        System.out.println("登录失败: " + username);
         return null;
     }
 
@@ -105,63 +147,9 @@ public class UserManager {
     }
 
     /**
-     * 获取所有用户
+     * 获取所有用户列表（用于外部访问）
      */
     public List<User> getAllUsers() {
         return new ArrayList<>(users);
-    }
-
-    /**
-     * 删除用户
-     */
-    public boolean deleteUser(String username) {
-        User user = getUserByUsername(username);
-        if (user != null) {
-            users.remove(user);
-            return saveUsers();
-        }
-        return false;
-    }
-
-    /**
-     * 更新用户信息
-     */
-    public boolean updateUser(User updatedUser) {
-        for (int i = 0; i < users.size(); i++) {
-            if (users.get(i).getUsername().equals(updatedUser.getUsername())) {
-                users.set(i, updatedUser);
-                return saveUsers();
-            }
-        }
-        return false;
-    }
-
-    /**
-     * 保存用户数据到文件
-     */
-    @SuppressWarnings("unchecked")
-    private void loadUsers() {
-        File file = new File(USER_DATA_FILE);
-        if (file.exists()) {
-            try (ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file))) {
-                users = (List<User>) ois.readObject();
-            } catch (Exception e) {
-                System.err.println("加载用户数据失败: " + e.getMessage());
-                users = new ArrayList<>();
-            }
-        }
-    }
-
-    /**
-     * 从文件加载用户数据
-     */
-    private boolean saveUsers() {
-        try (ObjectOutputStream oos = new ObjectOutputStream(new FileOutputStream(USER_DATA_FILE))) {
-            oos.writeObject(users);
-            return true;
-        } catch (Exception e) {
-            System.err.println("保存用户数据失败: " + e.getMessage());
-            return false;
-        }
     }
 }

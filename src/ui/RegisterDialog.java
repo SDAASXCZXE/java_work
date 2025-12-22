@@ -1,5 +1,6 @@
 package ui;
 
+import uimodel.User;
 import uimodel.UserType;
 import uimodel.UserManager;
 import javax.swing.*;
@@ -128,6 +129,9 @@ public class RegisterDialog extends JDialog {
         );
     }
 
+    /**
+     * 注册方法
+     */
     private void register() {
         // 获取输入数据
         String username = usernameField.getText().trim();
@@ -138,6 +142,7 @@ public class RegisterDialog extends JDialog {
         String name = nameField.getText().trim();
         String phone = phoneField.getText().trim();
         String email = emailField.getText().trim();
+
 
         // 验证输入
         if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
@@ -187,22 +192,25 @@ public class RegisterDialog extends JDialog {
 
         // 注册用户
         UserManager userManager = UserManager.getInstance();
+
+        // 执行注册（学号检查已经在registerUser方法中完成）
         boolean success = userManager.registerUser(username, password, userType,
                 studentId, name, phone, email);
 
         if (success) {
-            JOptionPane.showMessageDialog(this, "注册成功！\n用户名: " + username +
+            JOptionPane.showMessageDialog(this,
+                    "注册成功！\n用户名: " + username +
                             "\n用户类型: " + userType.getDescription(),
-                    "注册成功", JOptionPane.INFORMATION_MESSAGE);
+                    "注册成功",
+                    JOptionPane.INFORMATION_MESSAGE);
+
             registered = true;
             dispose();
         } else {
-            JOptionPane.showMessageDialog(this, "注册失败！用户名可能已存在。",
-                    "注册失败", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "注册失败！用户名或学号可能已存在。",
+                    "注册失败",
+                    JOptionPane.ERROR_MESSAGE);
         }
-    }
-
-    public boolean isRegistered() {
-        return registered;
     }
 }
