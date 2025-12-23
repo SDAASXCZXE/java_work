@@ -77,7 +77,7 @@ public class MainFrame extends JFrame {
             String studentId = currentUser.getStudentId() != null ?
                     currentUser.getStudentId() : "20230001";
 
-            tabs.addTab("我的宿舍", new StudentDashboardPanel(studentId, studentName, dormitory));
+            tabs.addTab("我的宿舍", new StudentDashboardPanel(studentId, studentName));
 
         } else {
             // 管理员和宿舍管理员看到完整系统

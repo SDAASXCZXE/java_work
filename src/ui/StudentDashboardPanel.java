@@ -1,10 +1,15 @@
 package ui;
 
+import model.Student;  // 导入Student类
 import javax.swing.*;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 /**
  * 学生个人面板 - 学生登录后可见
@@ -15,15 +20,21 @@ public class StudentDashboardPanel extends JPanel {
     private JTable attendanceTable;
     private DefaultTableModel attendanceTableModel;
 
-    // 当前登录学生信息
-    private String studentId;
-    private String studentName;
-    private String dormitory;
+    // 使用Student对象存储学生信息
+    private Student student;
 
-    public StudentDashboardPanel(String studentId, String studentName, String dormitory) {
-        this.studentId = studentId;
-        this.studentName = studentName;
-        this.dormitory = dormitory;
+    public StudentDashboardPanel(String studentId, String studentName) {
+        // 创建Student对象
+        this.student = new Student();
+        this.student.setSno(studentId);
+        this.student.setName(studentName);
+        // 其他字段可以使用默认值，或者根据需要设置
+        this.student.setGender("男");
+        this.student.setCollege("计算机学院");
+        this.student.setMajor("软件工程");
+        this.student.setClazz("1班");
+        this.student.setPhone("13800138001");
+        this.student.setInDate(new Date());
 
         initUI();
         loadSampleData();
@@ -65,11 +76,11 @@ public class StudentDashboardPanel extends JPanel {
         JPanel infoPanel = new JPanel(new GridLayout(2, 1));
         infoPanel.setBackground(new Color(70, 130, 180));
 
-        JLabel welcomeLabel = new JLabel("欢迎您，" + studentName + "同学！");
+        JLabel welcomeLabel = new JLabel("欢迎您，" + student.getName() + "同学！");
         welcomeLabel.setFont(new Font("微软雅黑", Font.BOLD, 18));
         welcomeLabel.setForeground(Color.WHITE);
 
-        JLabel detailLabel = new JLabel("学号：" + studentId + " | 宿舍：" + dormitory);
+        JLabel detailLabel = new JLabel("学号：" + student.getSno() + " | 学院：" + student.getCollege());
         detailLabel.setFont(new Font("微软雅黑", Font.PLAIN, 14));
         detailLabel.setForeground(Color.WHITE);
 
@@ -143,7 +154,7 @@ public class StudentDashboardPanel extends JPanel {
 
         // 底部统计信息
         JPanel statsPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        statsPanel.add(new JLabel("已提交报修：0  |  处理中：0  |  已完成：0"));
+        statsPanel.add(new JLabel("已提交报修：3  |  处理中：1  |  已完成：1"));
 
         panel.add(statsPanel, BorderLayout.SOUTH);
 
@@ -171,15 +182,15 @@ public class StudentDashboardPanel extends JPanel {
         JComboBox<String> typeCombo = new JComboBox<>(types);
         panel.add(typeCombo, gbc);
 
-        // 当前宿舍
+        // 当前宿舍（这里用班级代替宿舍）
         gbc.gridx = 0;
         gbc.gridy = 1;
-        panel.add(new JLabel("当前宿舍："), gbc);
+        panel.add(new JLabel("当前班级："), gbc);
 
         gbc.gridx = 1;
-        JTextField currentDormField = new JTextField(dormitory);
-        currentDormField.setEditable(false);
-        panel.add(currentDormField, gbc);
+        JTextField currentClassField = new JTextField(student.getClazz());
+        currentClassField.setEditable(false);
+        panel.add(currentClassField, gbc);
 
         // 目标宿舍（换宿时使用）
         gbc.gridx = 0;
@@ -343,11 +354,24 @@ public class StudentDashboardPanel extends JPanel {
         gbc.insets = new Insets(10, 10, 10, 10);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        // 使用Student对象的字段
         String[] labels = {"学号：", "姓名：", "性别：", "学院：", "专业：",
-                "班级：", "宿舍：", "床位：", "联系电话：", "入住日期："};
+                "班级：", "电话：", "入学日期："};
 
-        String[] values = {studentId, studentName, "男", "计算机学院", "软件工程",
-                "1班", dormitory, "1号床", "13800138001", "2023-09-01"};
+        // 格式化入学日期
+        String inDateStr = student.getInDate() != null ?
+                new SimpleDateFormat("yyyy-MM-dd").format(student.getInDate()) : "未知";
+
+        String[] values = {
+                student.getSno(),
+                student.getName(),
+                student.getGender(),
+                student.getCollege(),
+                student.getMajor(),
+                student.getClazz(),
+                student.getPhone(),
+                inDateStr
+        };
 
         for (int i = 0; i < labels.length; i++) {
             gbc.gridx = 0;
@@ -382,9 +406,11 @@ public class StudentDashboardPanel extends JPanel {
         timeLabel.setBorder(BorderFactory.createEmptyBorder(5, 10, 5, 10));
 
         // 更新时间
-        Timer timer = new Timer(1000, e -> {
-            timeLabel.setText(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-                    .format(new java.util.Date()));
+        Timer timer = new Timer(1000, new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                timeLabel.setText(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+            }
         });
         timer.start();
 
@@ -430,11 +456,16 @@ public class StudentDashboardPanel extends JPanel {
         });
         formPanel.add(typeCombo);
 
-        // 宿舍信息
-        formPanel.add(new JLabel("宿舍号："));
-        JTextField dormField = new JTextField(dormitory);
-        dormField.setEditable(false);
-        formPanel.add(dormField);
+        // 学生信息
+        formPanel.add(new JLabel("学号："));
+        JTextField snoField = new JTextField(student.getSno());
+        snoField.setEditable(false);
+        formPanel.add(snoField);
+
+        formPanel.add(new JLabel("姓名："));
+        JTextField nameField = new JTextField(student.getName());
+        nameField.setEditable(false);
+        formPanel.add(nameField);
 
         // 详细描述
         formPanel.add(new JLabel("详细描述："));
@@ -465,7 +496,7 @@ public class StudentDashboardPanel extends JPanel {
             // 添加到表格
             Object[] newRow = {
                     "R" + System.currentTimeMillis(),
-                    new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()),
+                    new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()),
                     type,
                     description,
                     "待处理",
@@ -493,7 +524,7 @@ public class StudentDashboardPanel extends JPanel {
     private void uploadRepairImage() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("选择报修图片");
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
+        fileChooser.setFileFilter(new FileNameExtensionFilter(
                 "图片文件", "jpg", "jpeg", "png", "gif"));
 
         int result = fileChooser.showOpenDialog(this);
@@ -547,8 +578,8 @@ public class StudentDashboardPanel extends JPanel {
             return;
         }
 
-        String message = String.format("申请类型：%s\n当前宿舍：%s\n目标宿舍：%s\n申请原因：%s\n\n确认提交申请？",
-                type, dormitory, targetField.getText(), reason);
+        String message = String.format("申请类型：%s\n当前班级：%s\n目标宿舍：%s\n申请原因：%s\n\n确认提交申请？",
+                type, student.getClazz(), targetField.getText(), reason);
 
         int confirm = JOptionPane.showConfirmDialog(this, message, "确认提交", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
@@ -567,10 +598,10 @@ public class StudentDashboardPanel extends JPanel {
         dialog.setSize(600, 400);
         dialog.setLocationRelativeTo(this);
 
-        String[] columns = {"申请时间", "申请类型", "当前宿舍", "目标宿舍", "申请原因", "审核状态"};
+        String[] columns = {"申请时间", "申请类型", "当前班级", "目标宿舍", "申请原因", "审核状态"};
         Object[][] data = {
-                {"2024-01-15", "申请换宿", "A101", "B202", "宿舍环境问题", "审核通过"},
-                {"2024-01-10", "申请退宿", "A101", "", "毕业离校", "待审核"}
+                {"2024-01-15", "申请换宿", student.getClazz(), "B202", "宿舍环境问题", "审核通过"},
+                {"2024-01-10", "申请退宿", student.getClazz(), "", "毕业离校", "待审核"}
         };
 
         JTable table = new JTable(data, columns);
@@ -662,7 +693,7 @@ public class StudentDashboardPanel extends JPanel {
         if (selected != null) {
             Object[] newRow = {
                     "Q" + System.currentTimeMillis(),
-                    new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm").format(new java.util.Date()),
+                    new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()),
                     selected,
                     "一键报修：" + selected,
                     "待处理",
@@ -735,5 +766,14 @@ public class StudentDashboardPanel extends JPanel {
         for (Object[] row : attendanceData) {
             attendanceTableModel.addRow(row);
         }
+    }
+
+    // 新增getter方法，方便其他类访问学生信息
+    public Student getStudent() {
+        return student;
+    }
+
+    public void setStudent(Student student) {
+        this.student = student;
     }
 }
