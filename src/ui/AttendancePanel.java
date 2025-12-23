@@ -4,6 +4,18 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import model.Attendance;
+import service.AttendanceService;
+import service.impl.AttendanceServiceImpl;
+import service.StudentService;
+import service.impl.StudentServiceImpl;
 
 /**
  * 考勤管理面板
@@ -14,9 +26,13 @@ public class AttendancePanel extends JPanel {
     private JComboBox<String> buildingFilter;
     private JComboBox<String> statusFilter;
 
+    // 使用业务层
+    private AttendanceService attendanceService = new AttendanceServiceImpl();
+    private StudentService studentService = new StudentServiceImpl();
+
     public AttendancePanel() {
         initUI();
-        loadSampleData();
+        loadDataFromDB();
     }
 
     private void initUI() {
@@ -259,7 +275,44 @@ public class AttendancePanel extends JPanel {
     }
 
     /**
-     * 手动登记
+     * 从数据库加载考勤记录并填充表格（同时查询学生姓名以显示）
+     */
+    private void loadDataFromDB() {
+        tableModel.setRowCount(0);
+        try {
+            // 构建学号->姓名映射，便于显示
+            Map<String, String> nameMap = new HashMap<>();
+            try {
+                studentService.listStudents().forEach(s -> nameMap.put(s.getSno(), s.getName()));
+            } catch (Exception ignored) {}
+
+            List<Attendance> list = attendanceService.listAll();
+            DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
+            DateTimeFormatter dtFmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            int idx = 1;
+            for (Attendance a : list) {
+                String name = nameMap.getOrDefault(a.getStudentId(), "");
+                Object[] row = new Object[]{
+                        idx++,
+                        a.getStudentId(),
+                        name,
+                        a.getRoomNumber(),
+                        a.getAttendanceDate().toString(),
+                        a.getAttendanceTime() == null ? "" : a.getAttendanceTime().format(timeFmt),
+                        a.getStatus() == null ? "" : a.getStatus().getDescription(),
+                        a.getRemarks().orElse(""),
+                        a.getCreateTime() == null ? "" : a.getCreateTime().format(dtFmt)
+                };
+                tableModel.addRow(row);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "加载考勤数据失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * 手动登记（持久化到数据库）
      */
     private void manualRegistration() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "手动考勤登记", true);
@@ -275,7 +328,7 @@ public class AttendancePanel extends JPanel {
         JTextField studentIdField = new JTextField();
         formPanel.add(studentIdField);
 
-        // 姓名
+        // 姓名（UI 展示，数据库表可能没有人名字段，这里只作展示）
         formPanel.add(new JLabel("姓名:"));
         JTextField nameField = new JTextField();
         formPanel.add(nameField);
@@ -287,14 +340,12 @@ public class AttendancePanel extends JPanel {
 
         // 日期
         formPanel.add(new JLabel("日期:"));
-        JTextField dateField = new JTextField(new java.text.SimpleDateFormat("yyyy-MM-dd")
-                .format(new java.util.Date()));
+        JTextField dateField = new JTextField(new java.text.SimpleDateFormat("yyyy-MM-dd").format(new java.util.Date()));
         formPanel.add(dateField);
 
         // 归寝时间
         formPanel.add(new JLabel("归寝时间:"));
-        JTextField timeField = new JTextField(new java.text.SimpleDateFormat("HH:mm")
-                .format(new java.util.Date()));
+        JTextField timeField = new JTextField(new java.text.SimpleDateFormat("HH:mm").format(new java.util.Date()));
         formPanel.add(timeField);
 
         // 考勤状态
@@ -321,28 +372,39 @@ public class AttendancePanel extends JPanel {
                 return;
             }
 
-            // 添加到表格
-            Object[] newRow = {
-                    tableModel.getRowCount() + 1,
-                    studentIdField.getText().trim(),
-                    nameField.getText().trim(),
-                    dormField.getText().trim(),
-                    dateField.getText().trim(),
-                    timeField.getText().trim(),
-                    statusCombo.getSelectedItem().toString(),
-                    remarkField.getText().trim(),
-                    new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new java.util.Date())
-            };
+            // 构造 Attendance 对象并持久化
+            try {
+                String sid = studentIdField.getText().trim();
+                String room = dormField.getText().trim();
+                String dateText = dateField.getText().trim();
+                String timeText = timeField.getText().trim();
 
-            tableModel.addRow(newRow);
+                LocalDate d = LocalDate.parse(dateText);
+                LocalTime t = LocalTime.parse(timeText);
 
-            JOptionPane.showMessageDialog(dialog, "考勤登记成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
+                Attendance.AttendanceStatus st = Attendance.AttendanceStatus.NORMAL;
+                String stText = (String) statusCombo.getSelectedItem();
+                switch (stText) {
+                    case "晚归": st = Attendance.AttendanceStatus.LATE; break;
+                    case "未归": st = Attendance.AttendanceStatus.ABSENT; break;
+                    case "请假": st = Attendance.AttendanceStatus.LEAVE; break;
+                    default: st = Attendance.AttendanceStatus.NORMAL; break;
+                }
 
-            // 清空表单
-            studentIdField.setText("");
-            nameField.setText("");
-            dormField.setText("");
-            remarkField.setText("");
+                Attendance a = Attendance.createCustomRecord(sid, room, room.length() > 0 ? room.substring(0,1) : "", d, t, Attendance.AttendanceDirection.IN, st);
+                boolean ok = attendanceService.add(a);
+                if (ok) {
+                    loadDataFromDB();
+                    JOptionPane.showMessageDialog(dialog, "考勤登记成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "考勤登记失败，请检查数据库。", "错误", JOptionPane.ERROR_MESSAGE);
+                }
+
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(dialog, "登记失败：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            }
         });
 
         JButton cancelBtn = new JButton("取消");
@@ -534,49 +596,40 @@ public class AttendancePanel extends JPanel {
             return;
         }
 
-        javax.swing.RowFilter<DefaultTableModel, Object> filter = new javax.swing.RowFilter<DefaultTableModel, Object>() {
-            public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
-                return entry.getStringValue(4).equals(date.trim());
+        // 尝试解析并通过 Service 查询数据库
+        try {
+            java.time.LocalDate d = java.time.LocalDate.parse(date.trim());
+            java.util.List<Attendance> list = attendanceService.listByDate(d);
+
+            // 填充表格
+            tableModel.setRowCount(0);
+            java.time.format.DateTimeFormatter timeFmt = java.time.format.DateTimeFormatter.ofPattern("HH:mm");
+            java.time.format.DateTimeFormatter dtFmt = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            // 获取学生姓名映射
+            java.util.Map<String, String> nameMap = new java.util.HashMap<>();
+            try { studentService.listStudents().forEach(s -> nameMap.put(s.getSno(), s.getName())); } catch (Exception ignored) {}
+
+            int idx = 1;
+            for (Attendance a : list) {
+                String name = nameMap.getOrDefault(a.getStudentId(), "");
+                Object[] row = new Object[]{
+                        idx++,
+                        a.getStudentId(),
+                        name,
+                        a.getRoomNumber(),
+                        a.getAttendanceDate().toString(),
+                        a.getAttendanceTime() == null ? "" : a.getAttendanceTime().format(timeFmt),
+                        a.getStatus() == null ? "" : a.getStatus().getDescription(),
+                        a.getRemarks().orElse(""),
+                        a.getCreateTime() == null ? "" : a.getCreateTime().format(dtFmt)
+                };
+                tableModel.addRow(row);
             }
-        };
 
-        javax.swing.table.TableRowSorter<DefaultTableModel> sorter =
-                new javax.swing.table.TableRowSorter<>(tableModel);
-        sorter.setRowFilter(filter);
-        attendanceTable.setRowSorter(sorter);
-
-        int count = 0;
-        for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (date.trim().equals(tableModel.getValueAt(i, 4).toString())) {
-                count++;
-            }
-        }
-
-        JOptionPane.showMessageDialog(this,
-                "日期 " + date + " 的考勤记录：" + count + "条",
-                "查询结果",
-                JOptionPane.INFORMATION_MESSAGE);
-    }
-
-    /**
-     * 加载示例数据
-     */
-    private void loadSampleData() {
-        Object[][] sampleData = {
-                {1, "20230001", "张三", "A101", "2024-01-15", "22:15", "正常", "", "2024-01-15 22:20"},
-                {2, "20230002", "李四", "B202", "2024-01-15", "23:45", "晚归", "社团活动", "2024-01-15 23:50"},
-                {3, "20230003", "王五", "C303", "2024-01-15", "未归", "未归", "请假回家", "2024-01-16 08:30"},
-                {4, "20230004", "赵六", "A102", "2024-01-15", "22:30", "正常", "", "2024-01-15 22:35"},
-                {5, "20230005", "钱七", "B201", "2024-01-15", "23:30", "晚归", "图书馆学习", "2024-01-15 23:35"},
-                {6, "20230006", "孙八", "C304", "2024-01-15", "22:00", "正常", "", "2024-01-15 22:05"},
-                {7, "20230007", "周九", "A103", "2024-01-15", "未归", "未归", "实习未归", "2024-01-16 09:00"},
-                {8, "20230008", "吴十", "B203", "2024-01-15", "22:45", "正常", "", "2024-01-15 22:50"},
-                {9, "20230009", "郑十一", "C305", "2024-01-15", "22:20", "正常", "", "2024-01-15 22:25"},
-                {10, "20230010", "王十二", "A104", "2024-01-15", "请假", "请假", "生病", "2024-01-15 20:00"}
-        };
-
-        for (Object[] row : sampleData) {
-            tableModel.addRow(row);
+            JOptionPane.showMessageDialog(this, "查询完成：共 " + list.size() + " 条记录", "查询结果", JOptionPane.INFORMATION_MESSAGE);
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "查询失败：请输入正确的日期格式 yyyy-MM-dd 或检查数据库连接。\n" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 }
