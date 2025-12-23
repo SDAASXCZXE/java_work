@@ -1,4 +1,3 @@
-
 package dao;
 
 import model.Student;
@@ -11,4 +10,7 @@ public interface StudentDao {
     List<Student> findAll();
     void addStudent(Student student) throws Exception;
     void deleteStudent(String sno);
+
+    // 新增：检查学号是否已存在
+    boolean existsBySno(String sno);
 }

@@ -11,6 +11,7 @@ import model.Room.RoomType;
 import model.Room.RoomStatus;
 import service.RoomService;
 import service.impl.RoomServiceImpl;
+import util.DBUtil;
 
 /**
  * 宿舍管理面板
@@ -180,18 +181,36 @@ public class RoomPanel extends JPanel {
         tableModel.setRowCount(0);
         try {
             List<Room> rooms = roomService.findAll();
+
+            // 如果结果为空，额外检查数据库连接，便于定位问题
+            if (rooms == null || rooms.isEmpty()) {
+                // 仅在无法连接数据库时弹出错误提示
+                try {
+                    if (DBUtil.getConnection() == null) {
+                        JOptionPane.showMessageDialog(this, "无法连接数据库，请检查配置并确保数据库可用。", "数据库连接错误", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+                } catch (Exception ignored) {
+                    // ignore
+                }
+                // 若连接可用但列表为空，则表示当前无宿舍记录
+                updateRoomCount();
+                return;
+            }
+
             for (Room r : rooms) {
                 Object[] row = {
                         r.getRoomNumber(),
                         r.getBuilding(),
-                        r.getRoomType().getDescription(),
+                        // 保护性调用：若枚举为 null，则显示空字符串，避免 NPE
+                        r.getRoomType() == null ? "" : r.getRoomType().getDescription(),
                         r.getTotalBeds(),
                         r.getOccupied(),
                         r.getAvailableBeds(),
                         r.getMonitor(),
                         r.getPhone(),
                         r.getHygieneScore(),
-                        r.getStatus().getDescription(),
+                        r.getStatus() == null ? "" : r.getStatus().getDescription(),
                         r.getRemarks()
                 };
                 tableModel.addRow(row);
@@ -199,6 +218,7 @@ public class RoomPanel extends JPanel {
             updateRoomCount();
         } catch (Exception e) {
             e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "加载宿舍数据失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -351,11 +371,35 @@ public class RoomPanel extends JPanel {
             RoomType typeEnum = RoomType.fromDescription(roomType);
             RoomStatus statusEnum = RoomStatus.fromDescription(statusText);
             Room room = new Room(roomNumber, building, typeEnum, totalBeds, occupied, available, monitor, phone, hygiene, statusEnum, remarks);
+
+            // 新增：检查房间号唯一（使用已有的 roomService 实例）
+            if (roomService.existsByRoomNumber(roomNumber)) {
+                JOptionPane.showMessageDialog(dialog, "房间号已存在，请检查输入。", "错误", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
             boolean ok = roomService.add(room);
             if (ok) {
                 loadRoomsFromDB();
-                JOptionPane.showMessageDialog(dialog, "宿舍添加成功！");
-                dialog.dispose();
+                // 尝试在表格中定位新添加的宿舍并选中
+                boolean found = false;
+                for (int i = 0; i < tableModel.getRowCount(); i++) {
+                    Object v = tableModel.getValueAt(i, 0);
+                    if (v != null && v.toString().equals(roomNumber)) {
+                        roomTable.setRowSelectionInterval(i, i);
+                        roomTable.scrollRectToVisible(roomTable.getCellRect(i, 0, true));
+                        found = true;
+                        break;
+                    }
+                }
+                if (found) {
+                    JOptionPane.showMessageDialog(dialog, "宿舍添加成功！");
+                    dialog.dispose();
+                } else {
+                    String msg = "宿舍已插入但未在列表中找到。请检查数据库表内容。";
+                    System.err.println(msg);
+                    JOptionPane.showMessageDialog(dialog, msg, "警告", JOptionPane.WARNING_MESSAGE);
+                }
             } else {
                 JOptionPane.showMessageDialog(dialog, "宿舍添加失败，请检查数据库连接或重复房间号。", "错误", JOptionPane.ERROR_MESSAGE);
             }
@@ -792,3 +836,4 @@ public class RoomPanel extends JPanel {
     }
 
 }
+

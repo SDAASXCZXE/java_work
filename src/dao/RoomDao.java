@@ -40,4 +40,11 @@ public interface RoomDao {
      * @return 成功返回 true，失败返回 false
      */
     boolean updateOccupancy(String roomNumber, int occupied, int available, String status);
+
+    /**
+     * 检查房间号是否已存在
+     * @param roomNumber 房间号
+     * @return 如果房间号存在，返回 true；否则返回 false
+     */
+    boolean existsByRoomNumber(String roomNumber);
 }

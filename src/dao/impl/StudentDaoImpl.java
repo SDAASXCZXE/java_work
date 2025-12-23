@@ -87,4 +87,22 @@ public class StudentDaoImpl implements StudentDao {
             throw new RuntimeException("删除学生失败: " + e.getMessage(), e);
         }
     }
+
+    // 新增：检查指定学号是否已存在
+    @Override
+    public boolean existsBySno(String sno) {
+        String sql = "SELECT COUNT(1) FROM student WHERE sno = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, sno);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

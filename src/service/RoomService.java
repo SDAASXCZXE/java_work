@@ -35,4 +35,9 @@ public interface RoomService {
      * 更新入住/退宿信息（仅改变人数和状态）
      */
     boolean updateOccupancy(String roomNumber, int occupied, int available, String status);
+
+    /**
+     * 检查房间号是否存在
+     */
+    boolean existsByRoomNumber(String roomNumber);
 }

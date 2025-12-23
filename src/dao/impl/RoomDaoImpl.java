@@ -210,4 +210,21 @@ public class RoomDaoImpl implements RoomDao {
             DBUtil.close(conn);
         }
     }
+
+    @Override
+    public boolean existsByRoomNumber(String roomNumber) {
+        String sql = "SELECT COUNT(1) FROM room WHERE room_number = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, roomNumber);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
 }

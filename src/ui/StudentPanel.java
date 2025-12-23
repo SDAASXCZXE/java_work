@@ -271,7 +271,14 @@ public class StudentPanel extends JPanel {
 
             // 调用业务层添加学生
             StudentService studentService = new StudentServiceImpl();
+
+            // 新增：在添加前检查学号是否已存在
             try {
+                if (studentService.existsBySno(student.getSno())) {
+                    JOptionPane.showMessageDialog(dialog, "该学号已存在，请检查输入。", "错误", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
                 studentService.addStudent(student);
                 JOptionPane.showMessageDialog(dialog, "学生添加成功！");
                 dialog.dispose(); // 关闭对话框
@@ -597,3 +604,4 @@ public class StudentPanel extends JPanel {
         studentTable.clearSelection();
     }
 }
+

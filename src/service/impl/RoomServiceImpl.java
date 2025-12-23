@@ -38,4 +38,9 @@ public class RoomServiceImpl implements RoomService {
     public boolean updateOccupancy(String roomNumber, int occupied, int available, String status) {
         return dao.updateOccupancy(roomNumber, occupied, available, status);
     }
+
+    // 新增：检查房间是否存在，UI 使用以避免重复添加
+    public boolean existsByRoomNumber(String roomNumber) {
+        return dao.existsByRoomNumber(roomNumber);
+    }
 }

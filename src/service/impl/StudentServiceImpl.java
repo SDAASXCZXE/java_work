@@ -29,13 +29,18 @@ public class StudentServiceImpl implements StudentService {
     }
 
     // 删除学生
-        @Override
-        public void deleteStudent(String sno) {
-            try {
-                studentDao.deleteStudent(sno);
-            } catch (Exception e) {
-                throw new RuntimeException("删除学生失败: " + e.getMessage());
-            }
+    @Override
+    public void deleteStudent(String sno) {
+        try {
+            studentDao.deleteStudent(sno);
+        } catch (Exception e) {
+            throw new RuntimeException("删除学生失败: " + e.getMessage());
         }
+    }
+
+    @Override
+    public boolean existsBySno(String sno) {
+        return studentDao.existsBySno(sno);
+    }
 
 }
