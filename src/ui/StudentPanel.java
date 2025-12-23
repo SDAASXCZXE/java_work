@@ -10,11 +10,8 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.util.Date;
-
-  // 用于数据库中的日期类型
-
-
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 学生管理面板
@@ -220,27 +217,89 @@ public class StudentPanel extends JPanel {
                // break;
         }
     }
-
     /**
-     * 添加学生
+     * 添加学生 - 带学院-专业级联下拉框
      */
     private void addStudent() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "添加学生", true);
         dialog.setLayout(new BorderLayout());
-        dialog.setSize(400, 500);
+        dialog.setSize(450, 550); // 稍微加大一点
         dialog.setLocationRelativeTo(this);
 
         JPanel formPanel = new JPanel(new GridLayout(11, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         String[] labels = {"学号:", "姓名:", "性别:", "学院:", "专业:", "年级:", "班级:", "联系电话:", "紧急联系人:", "紧急联系电话:"};
-        JTextField[] fields = new JTextField[labels.length];
+        JComponent[] fields = new JComponent[labels.length];
+
+        // 定义学院与专业的映射关系
+        Map<String, String[]> collegeMajorMap = new HashMap<>();
+        collegeMajorMap.put("计算机学院", new String[]{"软件工程", "计算机科学与技术", "人工智能", "数据科学与大数据技术", "网络工程"});
+        collegeMajorMap.put("机械工程学院", new String[]{"机械工程", "车辆工程", "材料成型及控制工程", "工业设计", "智能制造工程"});
+        collegeMajorMap.put("电子信息学院", new String[]{"电子信息工程", "通信工程", "微电子科学与工程", "光电信息科学与工程", "集成电路设计与集成系统"});
+        collegeMajorMap.put("经济管理学院", new String[]{"会计学", "财务管理", "工商管理", "市场营销", "国际经济与贸易", "金融学"});
+        collegeMajorMap.put("外国语学院", new String[]{"英语", "日语", "法语", "德语", "翻译"});
+        collegeMajorMap.put("艺术学院", new String[]{"视觉传达设计", "环境设计", "产品设计", "数字媒体艺术", "音乐表演"});
+        collegeMajorMap.put("理学院", new String[]{"数学与应用数学", "物理学", "化学", "应用统计学", "信息与计算科学"});
+        collegeMajorMap.put("土木工程学院", new String[]{"土木工程", "建筑环境与能源应用工程", "给排水科学与工程", "工程管理", "工程造价"});
 
         for (int i = 0; i < labels.length; i++) {
             formPanel.add(new JLabel(labels[i]));
-            fields[i] = new JTextField();
-            formPanel.add(fields[i]);
+
+            switch (labels[i]) {
+                case "性别:":
+                    JComboBox<String> genderCombo = new JComboBox<>(new String[]{"男", "女"});
+                    fields[i] = genderCombo;
+                    formPanel.add(genderCombo);
+                    break;
+
+                case "学院:":
+                    // 学院下拉框
+                    String[] colleges = collegeMajorMap.keySet().toArray(new String[0]);
+                    JComboBox<String> collegeCombo = new JComboBox<>(colleges);
+                    fields[i] = collegeCombo;
+                    formPanel.add(collegeCombo);
+                    break;
+
+                case "专业:":
+                    // 专业下拉框（初始为空，会根据学院选择变化）
+                    JComboBox<String> majorCombo = new JComboBox<>();
+                    fields[i] = majorCombo;
+                    formPanel.add(majorCombo);
+                    break;
+
+                default:
+                    JTextField textField = new JTextField();
+                    fields[i] = textField;
+                    formPanel.add(textField);
+                    break;
+            }
         }
+
+        // 设置学院-专业级联选择监听器
+        JComboBox<String> collegeCombo = (JComboBox<String>) fields[3]; // 学院索引是3
+        JComboBox<String> majorCombo = (JComboBox<String>) fields[4];   // 专业索引是4
+
+        // 初始加载第一个学院的专业
+        String firstCollege = (String) collegeCombo.getItemAt(0);
+        majorCombo.removeAllItems();
+        for (String major : collegeMajorMap.get(firstCollege)) {
+            majorCombo.addItem(major);
+        }
+
+        // 学院选择变化时更新专业列表
+        collegeCombo.addActionListener(e -> {
+            String selectedCollege = (String) collegeCombo.getSelectedItem();
+            if (selectedCollege != null) {
+                majorCombo.removeAllItems();
+                String[] majors = collegeMajorMap.get(selectedCollege);
+                if (majors != null) {
+                    for (String major : majors) {
+                        majorCombo.addItem(major);
+                    }
+                }
+            }
+        });
 
         dialog.add(formPanel, BorderLayout.CENTER);
 
@@ -248,25 +307,48 @@ public class StudentPanel extends JPanel {
         JButton saveButton = new JButton("保存");
         JButton cancelButton = new JButton("取消");
 
-        // 保存按钮事件监听器 - 放在正确的位置
+        // 保存按钮事件监听器
         saveButton.addActionListener(e -> {
             // 验证必填字段
-            if (fields[0].getText().trim().isEmpty() || fields[1].getText().trim().isEmpty()) {
+            String sno = ((JTextField) fields[0]).getText().trim();
+            String name = ((JTextField) fields[1]).getText().trim();
+            String gender = (String) ((JComboBox<String>) fields[2]).getSelectedItem();
+            String college = (String) collegeCombo.getSelectedItem();
+            String major = (String) majorCombo.getSelectedItem();
+            String grade = ((JTextField) fields[5]).getText().trim();
+            String clazz = ((JTextField) fields[6]).getText().trim();
+            String phone = ((JTextField) fields[7]).getText().trim();
+            String emergencyContact = ((JTextField) fields[8]).getText().trim();
+            String emergencyPhone = ((JTextField) fields[9]).getText().trim();
+
+            // 验证学号和姓名
+            if (sno.isEmpty() || name.isEmpty()) {
                 JOptionPane.showMessageDialog(dialog, "学号和姓名不能为空！", "错误", JOptionPane.ERROR_MESSAGE);
                 return;
             }
 
-            // 创建学生对象并设置属性
+            // 验证电话号码格式
+            if (!phone.isEmpty() && !phone.matches("\\d{11}")) {
+                JOptionPane.showMessageDialog(dialog, "联系电话必须是11位数字！", "错误", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 验证紧急电话格式
+            if (!emergencyPhone.isEmpty() && !emergencyPhone.matches("\\d{11}")) {
+                JOptionPane.showMessageDialog(dialog, "紧急联系电话必须是11位数字！", "错误", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 创建学生对象
             Student student = new Student();
-            student.setSno(fields[0].getText().trim());
-            student.setName(fields[1].getText().trim());
-            student.setGender(fields[2].getText().trim());
-            student.setCollege(fields[3].getText().trim());
-            student.setMajor(fields[4].getText().trim());
-            student.setGrade(fields[5].getText().trim());
-            student.setClazz(fields[6].getText().trim());
-            student.setPhone(fields[7].getText().trim());
-            // 注意：紧急联系人相关字段可能需要在Student模型中添加
+            student.setSno(sno);
+            student.setName(name);
+            student.setGender(gender);
+            student.setCollege(college);
+            student.setMajor(major);
+            student.setGrade(grade);
+            student.setClazz(clazz);
+            student.setPhone(phone);
             student.setInDate(LocalDate.now());
 
             // 调用业务层添加学生
@@ -286,7 +368,6 @@ public class StudentPanel extends JPanel {
 
         buttonPanel.add(saveButton);
         buttonPanel.add(cancelButton);
-
         dialog.add(buttonPanel, BorderLayout.SOUTH);
 
         // 显示对话框

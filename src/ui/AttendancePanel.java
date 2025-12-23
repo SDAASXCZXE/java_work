@@ -7,8 +7,11 @@ import model.AttendanceUtil;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableRowSorter;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.text.SimpleDateFormat;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +25,7 @@ public class AttendancePanel extends JPanel {
     private JComboBox<String> buildingFilter;
     private JComboBox<String> statusFilter;
     private AttendanceManager attendanceManager;
+    private TableRowSorter<DefaultTableModel> sorter; // 添加排序器成员变量
 
     // 统计标签
     private JLabel todayTotalLabel;
@@ -34,6 +38,9 @@ public class AttendancePanel extends JPanel {
     private JLabel monthAbsentLabel;
     private JLabel monthLeaveLabel;
     private JLabel monthRateLabel;
+
+    // 日期选择相关组件
+    private JSpinner dateSpinner;
 
     public AttendancePanel() {
         attendanceManager = AttendanceManager.getInstance();
@@ -57,7 +64,7 @@ public class AttendancePanel extends JPanel {
     }
 
     /**
-     * 创建工具栏
+     * 创建工具栏 - 包含下拉日历
      */
     private JPanel createToolBar() {
         JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
@@ -86,20 +93,58 @@ public class AttendancePanel extends JPanel {
         statusFilter.addActionListener(e -> filterAttendance());
         toolBar.add(statusFilter);
 
-        // 日期选择
-        toolBar.add(new JLabel("日期:"));
-        JTextField dateField = new JTextField(AttendanceUtil.formatDate(new Date()), 10);
-        toolBar.add(dateField);
+        // 日期查询 - 使用JSpinner作为下拉日历
+        toolBar.add(Box.createHorizontalStrut(20));
+        toolBar.add(new JLabel("查询日期:"));
 
-        JButton dateBtn = new JButton("查询");
-        dateBtn.addActionListener(e -> queryByDate(dateField.getText()));
-        toolBar.add(dateBtn);
+        // 创建日期选择器
+        SpinnerDateModel dateModel = new SpinnerDateModel();
+        dateSpinner = new JSpinner(dateModel);
+
+        // 设置日期编辑器格式
+        JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(dateSpinner, "yyyy-MM-dd");
+        dateSpinner.setEditor(dateEditor);
+        dateSpinner.setValue(new Date()); // 默认选择今天
+        dateSpinner.setPreferredSize(new Dimension(120, 25));
+
+        toolBar.add(dateSpinner);
+
+        // 查询按钮
+        JButton queryBtn = new JButton("查询");
+        queryBtn.setBackground(new Color(46, 139, 87));
+        queryBtn.setForeground(Color.WHITE);
+        queryBtn.addActionListener(e -> {
+            Date selectedDate = (Date) dateSpinner.getValue();
+            String dateStr = new SimpleDateFormat("yyyy-MM-dd").format(selectedDate);
+            queryByDate(dateStr);
+        });
+        toolBar.add(queryBtn);
+
+        // 快速选择按钮
+        JButton todayBtn = new JButton("今天");
+        todayBtn.addActionListener(e -> {
+            dateSpinner.setValue(new Date());
+            String todayStr = new SimpleDateFormat("yyyy-MM-dd").format(new Date());
+            queryByDate(todayStr);
+        });
+        toolBar.add(todayBtn);
+
+        JButton yesterdayBtn = new JButton("昨天");
+        yesterdayBtn.addActionListener(e -> {
+            Date currentDate = (Date) dateSpinner.getValue();
+            long oneDay = 24 * 60 * 60 * 1000L;
+            Date yesterday = new Date(currentDate.getTime() - oneDay);
+            dateSpinner.setValue(yesterday);
+            String yesterdayStr = new SimpleDateFormat("yyyy-MM-dd").format(yesterday);
+            queryByDate(yesterdayStr);
+        });
+        toolBar.add(yesterdayBtn);
 
         return toolBar;
     }
 
     /**
-     * 创建表格面板
+     * 创建表格面板 - 修复排序问题
      */
     private JPanel createTablePanel() {
         JPanel panel = new JPanel(new BorderLayout());
@@ -111,12 +156,102 @@ public class AttendancePanel extends JPanel {
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
+
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                // 指定列的数据类型，以便正确排序
+                switch (columnIndex) {
+                    case 0: return Integer.class; // 序号列
+                    default: return String.class; // 其他列
+                }
+            }
         };
 
         attendanceTable = new JTable(tableModel);
         attendanceTable.setRowHeight(25);
         attendanceTable.getTableHeader().setFont(new Font("微软雅黑", Font.BOLD, 12));
         attendanceTable.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+
+        // 启用表格排序
+        attendanceTable.setAutoCreateRowSorter(true);
+
+        // 创建自定义排序器
+        sorter = new TableRowSorter<>(tableModel);
+
+        // 为序号列设置自定义比较器（按数字排序）
+        sorter.setComparator(0, new Comparator<Object>() {
+            @Override
+            public int compare(Object o1, Object o2) {
+                try {
+                    // 转换为字符串处理
+                    String s1 = o1.toString();
+                    String s2 = o2.toString();
+
+                    // 尝试将字符串转换为整数进行比较
+                    Integer n1 = Integer.parseInt(s1);
+                    Integer n2 = Integer.parseInt(s2);
+                    return n1.compareTo(n2);
+                } catch (NumberFormatException e) {
+                    // 如果无法转换为数字，则按字符串比较
+                    return o1.toString().compareTo(o2.toString());
+                }
+            }
+        });
+
+        // 为日期列设置自定义比较器（按日期排序）
+        sorter.setComparator(4, new Comparator<Object>() {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+
+            @Override
+            public int compare(Object o1, Object o2) {
+                try {
+                    Date d1 = sdf.parse(o1.toString());
+                    Date d2 = sdf.parse(o2.toString());
+                    return d1.compareTo(d2);
+                } catch (Exception e) {
+                    return o1.toString().compareTo(o2.toString());
+                }
+            }
+        });
+
+        // 为时间列设置自定义比较器（按时间排序）
+        sorter.setComparator(5, new Comparator<Object>() {
+            SimpleDateFormat timeFormat = new SimpleDateFormat("HH:mm");
+
+            @Override
+            public int compare(Object o1, Object o2) {
+                try {
+                    // 处理空值
+                    if (o1 == null || o1.toString().isEmpty()) return -1;
+                    if (o2 == null || o2.toString().isEmpty()) return 1;
+
+                    Date t1 = timeFormat.parse(o1.toString());
+                    Date t2 = timeFormat.parse(o2.toString());
+                    return t1.compareTo(t2);
+                } catch (Exception e) {
+                    return o1.toString().compareTo(o2.toString());
+                }
+            }
+        });
+
+        // 为登记时间列设置自定义比较器（按日期时间排序）
+        sorter.setComparator(8, new Comparator<Object>() {
+            SimpleDateFormat datetimeFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+
+            @Override
+            public int compare(Object o1, Object o2) {
+                try {
+                    Date dt1 = datetimeFormat.parse(o1.toString());
+                    Date dt2 = datetimeFormat.parse(o2.toString());
+                    return dt1.compareTo(dt2);
+                } catch (Exception e) {
+                    return o1.toString().compareTo(o2.toString());
+                }
+            }
+        });
+
+        // 设置排序器
+        attendanceTable.setRowSorter(sorter);
 
         // 设置行颜色
         attendanceTable.setDefaultRenderer(Object.class, new javax.swing.table.DefaultTableCellRenderer() {
@@ -125,7 +260,9 @@ public class AttendancePanel extends JPanel {
                                                            boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
-                String statusStr = table.getValueAt(row, 6).toString();
+                // 获取实际模型中的行索引
+                int modelRow = table.convertRowIndexToModel(row);
+                String statusStr = tableModel.getValueAt(modelRow, 6).toString();
                 AttendanceStatus status = getAttendanceStatusFromString(statusStr);
 
                 if (!isSelected) {
@@ -169,6 +306,7 @@ public class AttendancePanel extends JPanel {
                 return AttendanceStatus.NORMAL;
         }
     }
+
     /**
      * 创建统计面板
      */
@@ -327,10 +465,13 @@ public class AttendancePanel extends JPanel {
         JTextField dormField = new JTextField();
         formPanel.add(dormField);
 
-        // 日期
+        // 日期 - 使用日期选择器
         formPanel.add(new JLabel("日期:"));
-        JTextField dateField = new JTextField(AttendanceUtil.formatDate(new Date()));
-        formPanel.add(dateField);
+        SpinnerDateModel dateModel = new SpinnerDateModel(new Date(), null, null, java.util.Calendar.DAY_OF_MONTH);
+        JSpinner dateSpinner = new JSpinner(dateModel);
+        JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(dateSpinner, "yyyy-MM-dd");
+        dateSpinner.setEditor(dateEditor);
+        formPanel.add(dateSpinner);
 
         // 归寝时间
         formPanel.add(new JLabel("归寝时间:"));
@@ -359,7 +500,8 @@ public class AttendancePanel extends JPanel {
             String studentId = studentIdField.getText().trim();
             String studentName = nameField.getText().trim();
             String dormitory = dormField.getText().trim();
-            String dateStr = dateField.getText().trim();
+            Date selectedDate = (Date) dateSpinner.getValue();
+            String dateStr = new SimpleDateFormat("yyyy-MM-dd").format(selectedDate);
             String timeStr = timeField.getText().trim();
             String statusStr = (String) statusCombo.getSelectedItem();
             String remark = remarkField.getText().trim();
@@ -394,11 +536,6 @@ public class AttendancePanel extends JPanel {
             // 如果未设置时间且不是未归状态，则使用当前时间
             if (checkInTime == null && status != AttendanceStatus.ABSENT) {
                 checkInTime = new Date();
-            }
-
-            // 如果状态为"自动判断"，根据时间判断状态
-            if ("自动判断".equals(statusStr)) {
-                status = AttendanceUtil.getStatusByTime(checkInTime);
             }
 
             // 创建Attendance对象
@@ -448,13 +585,18 @@ public class AttendancePanel extends JPanel {
      * 将考勤记录添加到表格
      */
     private void addAttendanceToTable(Attendance attendance) {
+        // 生成序号（自动递增）
+        int rowCount = tableModel.getRowCount();
+        int nextId = rowCount + 1;
+
         Object[] row = new Object[9];
-        row[0] = attendance.getId();
+        row[0] = nextId;  // 序号改为数字类型
         row[1] = attendance.getStudentId();
         row[2] = attendance.getStudentName();
         row[3] = attendance.getDormitory();
         row[4] = AttendanceUtil.formatDate(attendance.getAttendanceDate());
-        row[5] = AttendanceUtil.formatTime(attendance.getCheckInTime());
+        row[5] = attendance.getCheckInTime() != null ?
+                AttendanceUtil.formatTime(attendance.getCheckInTime()) : "";
         row[6] = attendance.getStatus().getDescription();
         row[7] = attendance.getRemark();
         row[8] = AttendanceUtil.formatDateTime(attendance.getRecordTime());
@@ -476,7 +618,7 @@ public class AttendancePanel extends JPanel {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("导出考勤数据");
         fileChooser.setSelectedFile(new java.io.File("考勤数据_" +
-                new java.text.SimpleDateFormat("yyyyMMdd_HHmmss").format(new java.util.Date()) + ".csv"));
+                new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date()) + ".csv"));
 
         int result = fileChooser.showSaveDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
@@ -520,7 +662,7 @@ public class AttendancePanel extends JPanel {
         StringBuilder report = new StringBuilder();
         report.append("考勤统计报表\n");
         report.append("========================\n\n");
-        report.append("统计时间: ").append(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("\n\n");
+        report.append("统计时间: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append("\n\n");
 
         // 今日统计
         Map<String, Integer> todayStats = attendanceManager.getTodayStatistics();
@@ -541,7 +683,7 @@ public class AttendancePanel extends JPanel {
         report.append("• 请假次数: ").append(monthStats.get("leave")).append("\n");
         report.append("• 出勤率: ").append(monthStats.get("attendanceRate")).append("\n\n");
 
-        // 异常分析
+        // 异常情况分析
         List<Attendance> abnormalAttendances = attendanceManager.getAbnormalAttendances();
         if (!abnormalAttendances.isEmpty()) {
             report.append("异常情况分析:\n");
@@ -575,8 +717,10 @@ public class AttendancePanel extends JPanel {
         message.append("将向以下学生发送提醒：\n\n");
 
         for (int row : selectedRows) {
-            String name = tableModel.getValueAt(row, 2).toString();
-            String status = tableModel.getValueAt(row, 6).toString();
+            // 转换视图索引到模型索引
+            int modelRow = attendanceTable.convertRowIndexToModel(row);
+            String name = tableModel.getValueAt(modelRow, 2).toString();
+            String status = tableModel.getValueAt(modelRow, 6).toString();
             message.append(name).append(" (").append(status).append(")\n");
         }
 
@@ -601,18 +745,15 @@ public class AttendancePanel extends JPanel {
             return;
         }
 
-        // 筛选显示异常记录
-        javax.swing.RowFilter<DefaultTableModel, Object> filter = new javax.swing.RowFilter<DefaultTableModel, Object>() {
-            public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
-                String status = entry.getStringValue(6);
-                return "晚归".equals(status) || "未归".equals(status);
-            }
-        };
-
-        javax.swing.table.TableRowSorter<DefaultTableModel> sorter =
-                new javax.swing.table.TableRowSorter<>(tableModel);
-        sorter.setRowFilter(filter);
-        attendanceTable.setRowSorter(sorter);
+        // 使用我们创建的排序器
+        if (sorter != null) {
+            sorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Object>() {
+                public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
+                    String status = entry.getStringValue(6);
+                    return "晚归".equals(status) || "未归".equals(status);
+                }
+            });
+        }
 
         JOptionPane.showMessageDialog(this,
                 "已筛选显示 " + abnormalAttendances.size() + " 条异常考勤记录",
@@ -634,7 +775,7 @@ public class AttendancePanel extends JPanel {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("导出今日考勤");
         fileChooser.setSelectedFile(new java.io.File("今日考勤_" +
-                new java.text.SimpleDateFormat("yyyyMMdd").format(new java.util.Date()) + ".csv"));
+                new SimpleDateFormat("yyyyMMdd").format(new Date()) + ".csv"));
 
         int result = fileChooser.showSaveDialog(this);
         if (result == JFileChooser.APPROVE_OPTION) {
@@ -699,7 +840,7 @@ public class AttendancePanel extends JPanel {
         StringBuilder report = new StringBuilder();
         report.append("             月度考勤报告\n");
         report.append("================================\n\n");
-        report.append("报告月份：").append(new java.text.SimpleDateFormat("yyyy年MM月").format(new Date())).append("\n");
+        report.append("报告月份：").append(new SimpleDateFormat("yyyy年MM月").format(new Date())).append("\n");
         report.append("统计时间：").append(AttendanceUtil.formatDateTime(new Date())).append("\n\n");
         report.append("统计结果：\n");
         report.append("1. 总考勤人次：").append(monthStats.get("total")).append("\n");
@@ -739,25 +880,22 @@ public class AttendancePanel extends JPanel {
         String building = (String) buildingFilter.getSelectedItem();
         String status = (String) statusFilter.getSelectedItem();
 
-        javax.swing.RowFilter<DefaultTableModel, Object> filter = new javax.swing.RowFilter<DefaultTableModel, Object>() {
-            public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
-                boolean buildingMatch = "全部".equals(building) ||
-                        entry.getStringValue(3).startsWith(building.replace("栋", ""));
-                boolean statusMatch = "全部".equals(status) ||
-                        entry.getStringValue(6).equals(status);
-                return buildingMatch && statusMatch;
-            }
-        };
-
-        javax.swing.table.TableRowSorter<DefaultTableModel> sorter =
-                new javax.swing.table.TableRowSorter<>(tableModel);
-        sorter.setRowFilter(filter);
-        attendanceTable.setRowSorter(sorter);
+        if (sorter != null) {
+            sorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Object>() {
+                public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
+                    boolean buildingMatch = "全部".equals(building) ||
+                            entry.getStringValue(3).startsWith(building.replace("栋", ""));
+                    boolean statusMatch = "全部".equals(status) ||
+                            entry.getStringValue(6).equals(status);
+                    return buildingMatch && statusMatch;
+                }
+            });
+        }
 
         // 显示筛选结果
         int filteredCount = 0;
         for (int i = 0; i < tableModel.getRowCount(); i++) {
-            if (sorter.getViewRowCount() > i) {
+            if (sorter != null && sorter.getViewRowCount() > i) {
                 filteredCount++;
             }
         }
@@ -769,7 +907,7 @@ public class AttendancePanel extends JPanel {
     }
 
     /**
-     * 按日期查询
+     * 按日期查询 - 使用下拉日历选择的日期
      */
     private void queryByDate(String date) {
         if (date == null || date.trim().isEmpty()) {
@@ -777,21 +915,51 @@ public class AttendancePanel extends JPanel {
             return;
         }
 
-        javax.swing.RowFilter<DefaultTableModel, Object> filter = new javax.swing.RowFilter<DefaultTableModel, Object>() {
-            public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
-                return entry.getStringValue(4).equals(date.trim());
-            }
-        };
+        // 验证日期格式
+        try {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
+            sdf.setLenient(false);
+            sdf.parse(date);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this, "日期格式不正确！应为yyyy-MM-dd格式", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        javax.swing.table.TableRowSorter<DefaultTableModel> sorter =
-                new javax.swing.table.TableRowSorter<>(tableModel);
-        sorter.setRowFilter(filter);
-        attendanceTable.setRowSorter(sorter);
+        if (sorter != null) {
+            sorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Object>() {
+                public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
+                    return entry.getStringValue(4).equals(date.trim());
+                }
+            });
+        }
 
+        // 统计匹配记录数
         int count = 0;
         for (int i = 0; i < tableModel.getRowCount(); i++) {
             if (date.trim().equals(tableModel.getValueAt(i, 4).toString())) {
                 count++;
+            }
+        }
+
+        // 高亮显示匹配的行
+        attendanceTable.clearSelection();
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            if (date.trim().equals(tableModel.getValueAt(i, 4).toString())) {
+                attendanceTable.addRowSelectionInterval(i, i);
+            }
+        }
+
+        // 滚动到第一个匹配项
+        if (count > 0) {
+            int firstMatch = -1;
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                if (date.trim().equals(tableModel.getValueAt(i, 4).toString())) {
+                    firstMatch = i;
+                    break;
+                }
+            }
+            if (firstMatch >= 0) {
+                attendanceTable.scrollRectToVisible(attendanceTable.getCellRect(firstMatch, 0, true));
             }
         }
 
@@ -888,9 +1056,23 @@ public class AttendancePanel extends JPanel {
                             AttendanceStatus.LEAVE, "生病请假")
             };
 
+            int id = 1;
             for (Attendance attendance : sampleAttendances) {
                 attendanceManager.addAttendance(attendance);
-                addAttendanceToTable(attendance);
+
+                Object[] row = new Object[9];
+                row[0] = id++;  // 使用递增的数字序号
+                row[1] = attendance.getStudentId();
+                row[2] = attendance.getStudentName();
+                row[3] = attendance.getDormitory();
+                row[4] = AttendanceUtil.formatDate(attendance.getAttendanceDate());
+                row[5] = attendance.getCheckInTime() != null ?
+                        AttendanceUtil.formatTime(attendance.getCheckInTime()) : "";
+                row[6] = attendance.getStatus().getDescription();
+                row[7] = attendance.getRemark();
+                row[8] = AttendanceUtil.formatDateTime(attendance.getRecordTime());
+
+                tableModel.addRow(row);
             }
 
             // 更新统计信息
