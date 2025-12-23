@@ -1,5 +1,6 @@
 package ui;
 import javax.swing.*;
+import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -276,17 +277,40 @@ public class RoomPanel extends JPanel {
             formPanel.add((Component) fields[i]);
         }
 
-        // 同步 total_beds -> available_beds（当 total 改变时调整可用上限和值）
+        // 三者联动：totalBeds = occupied + available
         try {
-            JSpinner totalSpinner = (JSpinner) fields[3];
-            JSpinner availSpinner = (JSpinner) fields[5];
+            JSpinner totalSpinner = (JSpinner) fields[3];     // 总床位
+            JSpinner occupiedSpinner = (JSpinner) fields[4]; // 已住人数
+            JSpinner availSpinner = (JSpinner) fields[5];    // 空床位
+
+            SpinnerNumberModel occModel = (SpinnerNumberModel) occupiedSpinner.getModel();
             SpinnerNumberModel availModel = (SpinnerNumberModel) availSpinner.getModel();
-            totalSpinner.addChangeListener(e -> {
-                int tv = (Integer) totalSpinner.getValue();
-                availModel.setMaximum(tv);
-                if ((Integer) availSpinner.getValue() > tv) availSpinner.setValue(tv);
-            });
+
+            ChangeListener listener = e -> {
+                int total = (Integer) totalSpinner.getValue();
+                int occupied = (Integer) occupiedSpinner.getValue();
+
+                // 已住人数不能超过总床位
+                if (occupied > total) {
+                    occupied = total;
+                    occupiedSpinner.setValue(total);
+                }
+
+                int available = total - occupied;
+
+                // 更新模型约束
+                occModel.setMaximum(total);
+                availModel.setMaximum(total);
+
+                // 自动计算空床位
+                availSpinner.setValue(available);
+            };
+
+            totalSpinner.addChangeListener(listener);
+            occupiedSpinner.addChangeListener(listener);
+
         } catch (Exception ignored) {}
+
 
         dialog.add(formPanel, BorderLayout.CENTER);
 
