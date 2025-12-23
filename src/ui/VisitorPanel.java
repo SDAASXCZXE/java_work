@@ -1,9 +1,16 @@
 package ui;
 
+// 此文件由自动化脚本修改以刷新索引
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import model.Visitor;
+import service.VisitorService;
+import service.impl.VisitorServiceImpl;
+import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
 
 /**
  * 访客记录管理面板
@@ -11,10 +18,12 @@ import java.awt.event.ActionEvent;
 public class VisitorPanel extends JPanel {
     private JTable visitorTable;
     private DefaultTableModel tableModel;
+    private VisitorService visitorService = new VisitorServiceImpl();
+    private DateTimeFormatter fmt = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public VisitorPanel() {
         initUI();
-        loadSampleData();
+        loadVisitorsFromDB(); // 从数据库加载记录
     }
 
     private void initUI() {
@@ -101,7 +110,7 @@ public class VisitorPanel extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 5));
         panel.setBorder(BorderFactory.createEtchedBorder());
 
-        String[] stats = {"今日访客: 5人", "本周访客: 23人", "本月访客: 89人", "当前在楼: 3人"};
+        String[] stats = {"今日访客: 0人", "本周访客: 0人", "本月访客: 0人", "当前在楼: 0人"};
 
         for (String stat : stats) {
             JLabel label = new JLabel(stat);
@@ -139,25 +148,23 @@ public class VisitorPanel extends JPanel {
     }
 
     /**
-     * 访客登记
+     * 使用数据库保存访客记录
      */
     private void registerVisitor() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "访客登记", true);
         dialog.setLayout(new BorderLayout());
-        dialog.setSize(500, 600);
+        dialog.setSize(480, 420);
         dialog.setLocationRelativeTo(this);
 
         JPanel formPanel = new JPanel(new GridBagLayout());
-        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-
+        formPanel.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.insets = new Insets(6, 6, 6, 6);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
 
-        String[] labels = {"访客姓名:", "证件类型:", "证件号码:", "联系电话:",
-                "访问宿舍:", "被访学生:", "来访事由:", "预计离开:"};
-
+        // 字段：与数据库列顺序无关，但界面友好
+        String[] labels = {"访客姓名:", "证件类型:", "证件号码:", "联系电话:", "访问宿舍:", "被访学生:", "来访事由:", "预计离开(可空):"};
         JComponent[] fields = new JComponent[labels.length];
 
         for (int i = 0; i < labels.length; i++) {
@@ -168,85 +175,80 @@ public class VisitorPanel extends JPanel {
 
             gbc.gridx = 1;
             gbc.weightx = 1.0;
-
-            if (i == 1) { // 证件类型
+            if (i == 1) {
                 fields[i] = new JComboBox<>(new String[]{"身份证", "护照", "学生证", "其他"});
-            } else if (i == 7) { // 预计离开时间
-                fields[i] = new JTextField(new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm")
-                        .format(new java.util.Date()));
-            } else if (i == 6) { // 来访事由
-                JTextArea textArea = new JTextArea(3, 20);
-                fields[i] = new JScrollPane(textArea);
+            } else if (i == 6) {
+                JTextArea ta = new JTextArea(3, 20);
+                fields[i] = new JScrollPane(ta);
             } else {
                 fields[i] = new JTextField();
             }
-
             formPanel.add(fields[i], gbc);
         }
 
         dialog.add(formPanel, BorderLayout.CENTER);
 
-        // 按钮面板
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+        JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 8));
+        JButton saveBtn = new JButton("保存");
+        JButton cancelBtn = new JButton("取消");
 
-        JButton registerBtn = new JButton("登记访客");
-        registerBtn.setBackground(new Color(70, 130, 180));
-        registerBtn.setForeground(Color.WHITE);
-        registerBtn.addActionListener(e -> {
-            // 验证输入
-            for (int i = 0; i < fields.length; i++) {
-                if (i == 6) continue; // 跳过事由字段
+        saveBtn.addActionListener(ev -> {
+            // 必填检查（姓名、证件类型、证件号码、联系电话）
+            String name = ((JTextField) fields[0]).getText().trim();
+            Object idTypeObj = fields[1] instanceof JComboBox ? ((JComboBox<?>) fields[1]).getSelectedItem() : null;
+            String idType = idTypeObj == null ? "" : idTypeObj.toString();
+            String idNumber = ((JTextField) fields[2]).getText().trim();
+            String phone = ((JTextField) fields[3]).getText().trim();
 
-                String value = "";
-                if (fields[i] instanceof JTextField) {
-                    value = ((JTextField) fields[i]).getText().trim();
-                } else if (fields[i] instanceof JComboBox) {
-                    value = ((JComboBox) fields[i]).getSelectedItem().toString();
-                }
-
-                if (value.isEmpty() && i != 4 && i != 5) { // 访问宿舍和被访学生可选
-                    JOptionPane.showMessageDialog(dialog, labels[i] + "不能为空！",
-                            "输入错误", JOptionPane.ERROR_MESSAGE);
-                    return;
-                }
+            if (name.isEmpty() || idType.isEmpty() || idNumber.isEmpty() || phone.isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "姓名、证件类型、证件号码和联系电话为必填项。", "输入错误", JOptionPane.ERROR_MESSAGE);
+                return;
             }
 
-            // 添加到表格
-            Object[] newRow = new Object[labels.length + 3];
-            newRow[0] = "V" + System.currentTimeMillis(); // 访客ID
-            newRow[1] = ((JTextField) fields[0]).getText().trim(); // 姓名
-            newRow[2] = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm")
-                    .format(new java.util.Date()); // 来访时间
-            newRow[3] = ((JTextField) fields[7]).getText().trim(); // 离开时间
-
-            for (int i = 1; i < fields.length; i++) {
-                if (i == 6) {
-                    // 处理事由字段
-                    JScrollPane scrollPane = (JScrollPane) fields[i];
-                    JTextArea textArea = (JTextArea) scrollPane.getViewport().getView();
-                    newRow[i + 3] = textArea.getText().trim();
-                } else if (fields[i] instanceof JTextField) {
-                    newRow[i + 3] = ((JTextField) fields[i]).getText().trim();
-                } else if (fields[i] instanceof JComboBox) {
-                    newRow[i + 3] = ((JComboBox) fields[i]).getSelectedItem().toString();
-                }
+            Visitor v = new Visitor();
+            v.setId(Visitor.generateId());
+            v.setName(name);
+            v.setIdType(idType);
+            v.setIdNumber(idNumber);
+            v.setPhone(phone);
+            v.setVisitRoom(((JTextField) fields[4]).getText().trim());
+            v.setTargetStudent(((JTextField) fields[5]).getText().trim());
+            if (fields[6] instanceof JScrollPane) {
+                JTextArea ta = (JTextArea) ((JScrollPane) fields[6]).getViewport().getView();
+                v.setReason(ta.getText().trim());
+            } else {
+                v.setReason("");
             }
+            // 解析预计离开时间（可为空）
+            String leaveStr = ((JTextField) fields[7]).getText().trim();
+            try {
+                if (!leaveStr.isEmpty()) {
+                    v.setLeaveTime(LocalDateTime.parse(leaveStr, fmt));
+                }
+            } catch (Exception ex) {
+                // 忽略解析错误，用户可以后续修改
+            }
+            v.setArriveTime(LocalDateTime.now());
+            v.setRemarks("");
 
-            newRow[11] = ""; // 备注
-
-            tableModel.addRow(newRow);
-
-            JOptionPane.showMessageDialog(dialog, "访客登记成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
-            dialog.dispose();
+            boolean ok = visitorService.addVisitor(v);
+            if (ok) {
+                Object[] row = new Object[]{v.getId(), v.getName(), v.getArriveTime() == null ? "" : fmt.format(v.getArriveTime()),
+                        v.getLeaveTime().map(fmt::format).orElse(""), v.getVisitRoom(), v.getTargetStudent(), v.getReason(), v.getIdType(), v.getIdNumber(), v.getPhone(), v.getRemarks()};
+                tableModel.insertRow(0, row);
+                JOptionPane.showMessageDialog(dialog, "保存成功", "成功", JOptionPane.INFORMATION_MESSAGE);
+                dialog.dispose();
+            } else {
+                JOptionPane.showMessageDialog(dialog, "保存失败，请检查数据库连接或输入。", "失败", JOptionPane.ERROR_MESSAGE);
+            }
         });
 
-        JButton cancelBtn = new JButton("取消");
-        cancelBtn.addActionListener(e -> dialog.dispose());
+        cancelBtn.addActionListener(ev -> dialog.dispose());
 
-        buttonPanel.add(registerBtn);
-        buttonPanel.add(cancelBtn);
+        btnPanel.add(saveBtn);
+        btnPanel.add(cancelBtn);
+        dialog.add(btnPanel, BorderLayout.SOUTH);
 
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
 
@@ -254,37 +256,35 @@ public class VisitorPanel extends JPanel {
      * 编辑访客记录
      */
     private void editVisitor() {
-        int selectedRow = visitorTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "请选择要编辑的访客记录！", "提示", JOptionPane.WARNING_MESSAGE);
+        int r = visitorTable.getSelectedRow();
+        if (r == -1) {
+            JOptionPane.showMessageDialog(this, "请选择要编辑的记录。", "提示", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
-        JOptionPane.showMessageDialog(this,
-                "编辑功能开发中\n当前选择记录ID: " + tableModel.getValueAt(selectedRow, 0),
-                "提示",
-                JOptionPane.INFORMATION_MESSAGE);
+        String id = tableModel.getValueAt(r, 0).toString();
+        JOptionPane.showMessageDialog(this, "编辑功能尚未实现（记录ID=" + id + ")", "提示", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
      * 删除访客记录
      */
     private void deleteVisitor() {
-        int selectedRow = visitorTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "请选择要删除的访客记录！", "提示", JOptionPane.WARNING_MESSAGE);
+        int r = visitorTable.getSelectedRow();
+        if (r == -1) {
+            JOptionPane.showMessageDialog(this, "请选择要删除的记录。", "提示", JOptionPane.WARNING_MESSAGE);
             return;
         }
-
-        String visitorName = tableModel.getValueAt(selectedRow, 1).toString();
-        int confirm = JOptionPane.showConfirmDialog(this,
-                "确定要删除访客 [" + visitorName + "] 的记录吗？",
-                "确认删除",
-                JOptionPane.YES_NO_OPTION);
-
+        String id = tableModel.getValueAt(r, 0).toString();
+        String name = tableModel.getValueAt(r, 1).toString();
+        int confirm = JOptionPane.showConfirmDialog(this, "确定删除访客记录 [" + name + "] 吗？", "确认", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
-            tableModel.removeRow(selectedRow);
-            JOptionPane.showMessageDialog(this, "删除成功！");
+            boolean ok = visitorService.removeById(id);
+            if (ok) {
+                tableModel.removeRow(r);
+                JOptionPane.showMessageDialog(this, "删除成功");
+            } else {
+                JOptionPane.showMessageDialog(this, "删除失败，请检查数据库连接。", "错误", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 
@@ -292,28 +292,19 @@ public class VisitorPanel extends JPanel {
      * 查找访客
      */
     private void searchVisitor() {
-        String keyword = JOptionPane.showInputDialog(this, "请输入访客姓名或证件号码:", "查找访客", JOptionPane.QUESTION_MESSAGE);
-
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            keyword = keyword.trim().toLowerCase();
-
-            boolean found = false;
-            for (int i = 0; i < tableModel.getRowCount(); i++) {
-                String name = tableModel.getValueAt(i, 1).toString().toLowerCase();
-                String id = tableModel.getValueAt(i, 8).toString().toLowerCase();
-
-                if (name.contains(keyword) || id.contains(keyword)) {
-                    visitorTable.setRowSelectionInterval(i, i);
-                    visitorTable.scrollRectToVisible(visitorTable.getCellRect(i, 0, true));
-                    found = true;
-                    break;
-                }
-            }
-
-            if (!found) {
-                JOptionPane.showMessageDialog(this, "未找到匹配的访客记录！", "提示", JOptionPane.INFORMATION_MESSAGE);
+        String kw = JOptionPane.showInputDialog(this, "请输入访客姓名或证件号：", "查找", JOptionPane.QUESTION_MESSAGE);
+        if (kw == null || kw.trim().isEmpty()) return;
+        kw = kw.trim().toLowerCase();
+        for (int i = 0; i < tableModel.getRowCount(); i++) {
+            String name = String.valueOf(tableModel.getValueAt(i, 1));
+            String idNum = String.valueOf(tableModel.getValueAt(i, 8));
+            if ((name != null && name.toLowerCase().contains(kw)) || (idNum != null && idNum.toLowerCase().contains(kw))) {
+                visitorTable.setRowSelectionInterval(i, i);
+                visitorTable.scrollRectToVisible(visitorTable.getCellRect(i, 0, true));
+                return;
             }
         }
+        JOptionPane.showMessageDialog(this, "未找到匹配记录。", "提示", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
@@ -326,30 +317,24 @@ public class VisitorPanel extends JPanel {
     /**
      * 筛选记录
      */
-    private void filterRecords(String filter) {
-        // 实现筛选逻辑
-        JOptionPane.showMessageDialog(this, "筛选功能开发中: " + filter, "提示", JOptionPane.INFORMATION_MESSAGE);
+    private void filterRecords(String f) {
+        JOptionPane.showMessageDialog(this, "筛选：" + f + "（功能开发中）", "提示", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
-     * 加载示例数据
+     * 从数据库加载访客记录
      */
-    private void loadSampleData() {
-        Object[][] sampleData = {
-                {"V20240115001", "张伟", "2024-01-15 14:30", "2024-01-15 16:30", "A101", "张三",
-                        "家长探望", "身份证", "110101199001011234", "13800138001", ""},
-                {"V20240114002", "李明", "2024-01-14 10:15", "2024-01-14 11:45", "B202", "李四",
-                        "同学聚会", "学生证", "20230001", "13800138002", ""},
-                {"V20240113003", "王芳", "2024-01-13 16:20", "2024-01-13 18:00", "C303", "王五",
-                        "物品交接", "身份证", "310101199202022345", "13800138003", ""},
-                {"V20240112004", "赵强", "2024-01-12 09:30", "2024-01-12 10:15", "A102", "赵六",
-                        "工作访问", "工作证", "WZ2024001", "13800138004", "公司员工"},
-                {"V20240111005", "刘洋", "2024-01-11 19:45", "2024-01-11 21:30", "D404", "刘七",
-                        "朋友来访", "身份证", "440101199303033456", "13800138005", ""}
-        };
-
-        for (Object[] row : sampleData) {
-            tableModel.addRow(row);
+    private void loadVisitorsFromDB() {
+        tableModel.setRowCount(0);
+        try {
+            for (Visitor v : visitorService.listAll()) {
+                Object[] row = new Object[]{v.getId(), v.getName(), v.getArriveTime() == null ? "" : fmt.format(v.getArriveTime()),
+                        v.getLeaveTime().map(fmt::format).orElse(""), v.getVisitRoom(), v.getTargetStudent(), v.getReason(), v.getIdType(), v.getIdNumber(), v.getPhone(), v.getRemarks()};
+                tableModel.addRow(row);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "加载访客记录失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 }
