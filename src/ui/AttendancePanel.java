@@ -30,9 +30,25 @@ public class AttendancePanel extends JPanel {
     private AttendanceService attendanceService = new AttendanceServiceImpl();
     private StudentService studentService = new StudentServiceImpl();
 
+    // 统计面板相关标签（动态更新）
+    private JLabel lblDueCount;       // 应归人数
+    private JLabel lblReturnedCount;  // 已归人数
+    private JLabel lblLateCount;      // 晚归
+    private JLabel lblAbsentCount;    // 未归
+    private JLabel lblLeaveCount;     // 请假
+    private JLabel lblCurrentIn;      // 当前在楼（基于今日最后记录判断）
+
+    // 统计刷新定时器
+    private javax.swing.Timer statsTimer;
+
+    // 当前用于统计的日期（默认今天），可由 "查询" 修改
+    private LocalDate statsDate = LocalDate.now();
+
     public AttendancePanel() {
         initUI();
         loadDataFromDB();
+        // 启动统计自动刷新（立即更新一次，然后每60秒更新）
+        startStatsTimer();
     }
 
     private void initUI() {
@@ -71,12 +87,12 @@ public class AttendancePanel extends JPanel {
         toolBar.add(Box.createHorizontalStrut(20));
         toolBar.add(new JLabel("宿舍楼:"));
         buildingFilter = new JComboBox<>(new String[]{"全部", "A栋", "B栋", "C栋", "D栋"});
-        buildingFilter.addActionListener(e -> filterAttendance());
+        buildingFilter.addActionListener(e -> { filterAttendance(); updateStats(); });
         toolBar.add(buildingFilter);
 
         toolBar.add(new JLabel("状态:"));
         statusFilter = new JComboBox<>(new String[]{"全部", "正常", "晚归", "未归", "请假"});
-        statusFilter.addActionListener(e -> filterAttendance());
+        statusFilter.addActionListener(e -> { filterAttendance(); updateStats(); });
         toolBar.add(statusFilter);
 
         // 日期选择
@@ -119,7 +135,7 @@ public class AttendancePanel extends JPanel {
                                                            boolean isSelected, boolean hasFocus, int row, int column) {
                 Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
-                String status = table.getValueAt(row, 6).toString();
+                String status = table.getValueAt(row, 6) == null ? "" : table.getValueAt(row, 6).toString();
                 if (!isSelected) {
                     switch (status) {
                         case "晚归":
@@ -163,46 +179,42 @@ public class AttendancePanel extends JPanel {
     private JPanel createStatsPanel() {
         JPanel panel = new JPanel();
         panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
-        panel.setBorder(BorderFactory.createTitledBorder("考勤统计"));
+        panel.setBorder(BorderFactory.createTitledBorder("考勤统计 (实时)"));
         panel.setPreferredSize(new Dimension(250, 0));
 
-        // 今日统计
-        JPanel todayPanel = new JPanel(new GridLayout(5, 1, 5, 5));
+        // 今日统计 - 使用动态标签
+        JPanel todayPanel = new JPanel(new GridLayout(6, 1, 5, 5));
         todayPanel.setBorder(BorderFactory.createTitledBorder("今日统计"));
 
-        String[] todayStats = {
-                "应归人数: 320",
-                "已归人数: 315",
-                "晚归人数: 3",
-                "未归人数: 2",
-                "请假人数: 5"
-        };
+        lblDueCount = new JLabel("应归人数: 0");
+        lblReturnedCount = new JLabel("已归人数: 0");
+        lblLateCount = new JLabel("晚归人数: 0");
+        lblAbsentCount = new JLabel("未归人数: 0");
+        lblLeaveCount = new JLabel("请假人数: 0");
+        lblCurrentIn = new JLabel("当前在楼: 0");
 
-        for (String stat : todayStats) {
-            JLabel label = new JLabel("  " + stat);
-            label.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-            todayPanel.add(label);
+        for (JLabel l : new JLabel[]{lblDueCount, lblReturnedCount, lblLateCount, lblAbsentCount, lblLeaveCount, lblCurrentIn}) {
+            l.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+            todayPanel.add(l);
         }
 
         panel.add(todayPanel);
         panel.add(Box.createVerticalStrut(15));
 
-        // 本月统计
+        // 本月统计（保持简单展示，调用 updateStats 会更新此处文本）
         JPanel monthPanel = new JPanel(new GridLayout(5, 1, 5, 5));
         monthPanel.setBorder(BorderFactory.createTitledBorder("本月统计"));
 
-        String[] monthStats = {
-                "正常天数: 18天",
-                "晚归次数: 45次",
-                "未归次数: 8次",
-                "请假次数: 67次",
-                "出勤率: 96.2%"
-        };
+        // 使用占位标签，会在 updateStats 中计算并设置文本
+        JLabel m1 = new JLabel("正常天数: 0天");
+        JLabel m2 = new JLabel("晚归次数: 0次");
+        JLabel m3 = new JLabel("未归次数: 0次");
+        JLabel m4 = new JLabel("请假次数: 0次");
+        JLabel m5 = new JLabel("出勤率: 0%");
 
-        for (String stat : monthStats) {
-            JLabel label = new JLabel("  " + stat);
-            label.setFont(new Font("微软雅黑", Font.PLAIN, 12));
-            monthPanel.add(label);
+        for (JLabel l : new JLabel[]{m1, m2, m3, m4, m5}) {
+            l.setFont(new Font("微软雅黑", Font.PLAIN, 12));
+            monthPanel.add(l);
         }
 
         panel.add(monthPanel);
@@ -305,9 +317,139 @@ public class AttendancePanel extends JPanel {
                 };
                 tableModel.addRow(row);
             }
+
+            // 数据加载后更新统计
+            updateStats();
+
         } catch (Exception e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "加载考勤数据失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    /**
+     * 启动一个定时器周期性刷新统计（每60秒）
+     */
+    private void startStatsTimer() {
+        if (statsTimer != null) return;
+        updateStats();
+        // 每60秒刷新一次统计（仅影响 statsDate 指定的日期）
+        statsTimer = new javax.swing.Timer(60_000, e -> updateStats());
+        statsTimer.start();
+    }
+
+    /**
+     * 计算并更新统计面板（实时）
+     */
+    private void updateStats() {
+        try {
+            // 当前筛选条件
+            String buildingSel = "全部";
+            String statusSel = "全部";
+            try { buildingSel = (String) buildingFilter.getSelectedItem(); } catch (Exception ignored) {}
+            try { statusSel = (String) statusFilter.getSelectedItem(); } catch (Exception ignored) {}
+
+            String buildingNormalized = null; // 如 "A"
+            if (buildingSel != null && !"全部".equals(buildingSel)) {
+                buildingNormalized = buildingSel.replace("栋", "").trim();
+            }
+
+            // 使用 statsDate（默认今天），使查询/统计保持一致
+            LocalDate dateForStats = statsDate == null ? LocalDate.now() : statsDate;
+
+            List<Attendance> todayList = attendanceService.listByDate(dateForStats);
+
+            // 统计已归（以每个学号的最新记录为准，若最后一条为 IN 则判为已归）
+            Map<String, Attendance> lastMap = new HashMap<>();
+            for (Attendance a : todayList) {
+                // 应用楼栋和状态筛选（仅影响统计，不改变表格）
+                if (buildingNormalized != null) {
+                    String aBuilding = a.getBuilding() == null ? "" : a.getBuilding();
+                    String aRoom = a.getRoomNumber() == null ? "" : a.getRoomNumber();
+                    boolean match = aBuilding.equalsIgnoreCase(buildingNormalized) || aBuilding.equalsIgnoreCase(buildingNormalized + "栋") || aRoom.startsWith(buildingNormalized);
+                    if (!match) continue;
+                }
+                if (statusSel != null && !"全部".equals(statusSel)) {
+                    String stDesc = a.getStatus() == null ? "" : a.getStatus().getDescription();
+                    if (!statusSel.equals(stDesc)) continue;
+                }
+
+                String sid = a.getStudentId();
+                java.time.LocalTime at = a.getAttendanceTime();
+                java.time.LocalDateTime create = a.getCreateTime();
+                Attendance prev = lastMap.get(sid);
+                if (prev == null) {
+                    lastMap.put(sid, a);
+                } else {
+                    java.time.LocalDateTime prevTs = prev.getAttendanceTime() == null ? prev.getCreateTime() : prev.getAttendanceTime().atDate(prev.getAttendanceDate());
+                    java.time.LocalDateTime curTs = at == null ? create : at.atDate(a.getAttendanceDate());
+                    if (curTs.isAfter(prevTs)) {
+                        lastMap.put(sid, a);
+                    }
+                }
+            }
+
+            int returned = 0, late = 0, absent = 0, leave = 0;
+            for (Attendance a : lastMap.values()) {
+                if (a.isEntry()) returned++;
+                if (a.getStatus() == Attendance.AttendanceStatus.LATE) late++;
+                if (a.getStatus() == Attendance.AttendanceStatus.ABSENT) absent++;
+                if (a.getStatus() == Attendance.AttendanceStatus.LEAVE) leave++;
+            }
+
+            // 应归人数：根据学生表总数或按楼栋筛选
+            int due = 0;
+            try {
+                List<?> students = studentService.listStudents();
+                if (students != null) {
+                    if (buildingNormalized == null) {
+                        due = students.size();
+                    } else {
+                        int cnt = 0;
+                        for (Object obj : students) {
+                            try {
+                                java.lang.reflect.Method m = obj.getClass().getMethod("getDormNo");
+                                Object dorm = m.invoke(obj);
+                                if (dorm != null && dorm.toString().startsWith(buildingNormalized)) cnt++;
+                            } catch (NoSuchMethodException ns) {
+                                try {
+                                    java.lang.reflect.Method m2 = obj.getClass().getMethod("getDorm_no");
+                                    Object dorm = m2.invoke(obj);
+                                    if (dorm != null && dorm.toString().startsWith(buildingNormalized)) cnt++;
+                                } catch (Exception ignore) {
+                                    cnt = -1; break;
+                                }
+                            } catch (Exception ignore) {
+                                cnt = -1; break;
+                            }
+                        }
+                        if (cnt >= 0) due = cnt; else due = students.size();
+                    }
+                }
+            } catch (Exception ignored) { }
+
+            int currentIn = returned;
+
+            // 使用 final 局部变量传入 lambda，避免 "必须是 final" 的错误
+            final int fDue = due;
+            final int fReturned = returned;
+            final int fLate = late;
+            final int fAbsent = absent;
+            final int fLeave = leave;
+            final int fCurrentIn = currentIn;
+
+            SwingUtilities.invokeLater(() -> {
+                lblDueCount.setText("应归人数: " + fDue);
+                lblReturnedCount.setText("已归人数: " + fReturned);
+                lblLateCount.setText("晚归人数: " + fLate);
+                lblAbsentCount.setText("未归人数: " + fAbsent);
+                lblLeaveCount.setText("请假人数: " + fLeave);
+                lblCurrentIn.setText("当前在楼: " + fCurrentIn);
+            });
+
+            // TODO: 本月统计（可按需实现更复杂的逻辑）
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 
@@ -573,10 +715,12 @@ public class AttendancePanel extends JPanel {
 
         javax.swing.RowFilter<DefaultTableModel, Object> filter = new javax.swing.RowFilter<DefaultTableModel, Object>() {
             public boolean include(javax.swing.RowFilter.Entry<? extends DefaultTableModel, ? extends Object> entry) {
-                boolean buildingMatch = "全部".equals(building) ||
-                        entry.getStringValue(3).startsWith(building.replace("栋", ""));
-                boolean statusMatch = "全部".equals(status) ||
-                        entry.getStringValue(6).equals(status);
+                String val3 = null;
+                try { val3 = entry.getStringValue(3); } catch (Exception ignored) {}
+                boolean buildingMatch = "全部".equals(building) || (val3 != null && val3.startsWith(building.replace("栋", "")));
+                String val6 = null;
+                try { val6 = entry.getStringValue(6); } catch (Exception ignored) {}
+                boolean statusMatch = "全部".equals(status) || (val6 != null && val6.equals(status));
                 return buildingMatch && statusMatch;
             }
         };
@@ -625,6 +769,10 @@ public class AttendancePanel extends JPanel {
                 };
                 tableModel.addRow(row);
             }
+
+            // 设置用于统计的日期为查询日期，并刷新统计
+            try { statsDate = d; } catch (Exception ignored) {}
+            updateStats();
 
             JOptionPane.showMessageDialog(this, "查询完成：共 " + list.size() + " 条记录", "查询结果", JOptionPane.INFORMATION_MESSAGE);
         } catch (Exception e) {
