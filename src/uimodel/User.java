@@ -1,9 +1,13 @@
 package uimodel;
 
+import java.io.Serializable;
+
 /**
  * 用户实体类
  */
-public class User {
+public class User implements Serializable {
+    private static final long serialVersionUID = 1L;  // 添加序列化版本号
+
     private String username;
     private String password;
     private UserType userType;

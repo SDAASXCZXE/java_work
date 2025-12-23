@@ -7,9 +7,12 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.*;
+import java.util.Base64;
+import java.util.Properties;
 
 /**
- * 系统登录界面 - 修复按钮显示问题
+ * 系统登录界面 - 移除未使用的方法
  */
 public class LoginFrame extends JFrame {
     private JTextField usernameField;
@@ -19,6 +22,14 @@ public class LoginFrame extends JFrame {
     private User currentUser;
 
     private JLabel dateLabel;
+    private static final String CONFIG_FILE = "login_config.properties";
+    private static final String KEY_USERNAME = "username";
+    private static final String KEY_PASSWORD = "password";
+    private static final String KEY_REMEMBER = "remember";
+    private static final String KEY_USERTYPE = "usertype";
+
+    // 使用简单的加密密钥
+    private static final String ENCRYPTION_KEY = "DormSystemKey2024!";
 
     public LoginFrame() {
         initUI();
@@ -176,9 +187,24 @@ public class LoginFrame extends JFrame {
             }
         });
 
+        // 退出按钮
+        JButton exitButton = new JButton("退出");
+        exitButton.setPreferredSize(new Dimension(100, 35));
+        exitButton.setFont(new Font("微软雅黑", Font.BOLD, 14));
+        exitButton.setBackground(new Color(105, 105, 105));
+        exitButton.setForeground(Color.BLACK);
+        exitButton.setFocusPainted(false);
+        exitButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                confirmExit();
+            }
+        });
+
         buttonPanel.add(loginButton);
         buttonPanel.add(registerButton);
         buttonPanel.add(resetButton);
+        buttonPanel.add(exitButton);
 
         add(buttonPanel, BorderLayout.SOUTH);
 
@@ -229,6 +255,11 @@ public class LoginFrame extends JFrame {
             public void windowActivated(java.awt.event.WindowEvent e) {
                 updateDate();
             }
+
+            @Override
+            public void windowClosing(java.awt.event.WindowEvent e) {
+                confirmExit();
+            }
         });
     }
 
@@ -256,18 +287,172 @@ public class LoginFrame extends JFrame {
                 KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW
         );
+
+        // Ctrl+R 注册
+        getRootPane().registerKeyboardAction(
+                new ActionListener() {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        showRegisterDialog();
+                    }
+                },
+                KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_R, java.awt.event.InputEvent.CTRL_DOWN_MASK),
+                JComponent.WHEN_IN_FOCUSED_WINDOW
+        );
     }
 
+    /**
+     * 加载记住的用户信息
+     */
     private void loadRememberedUser() {
-        // 简化版本：不实现记住密码功能
-        // 在实际项目中可以添加
+        Properties props = new Properties();
+        File configFile = new File(CONFIG_FILE);
+
+        if (configFile.exists()) {
+            try (FileInputStream fis = new FileInputStream(configFile)) {
+                props.load(fis);
+
+                String savedUsername = props.getProperty(KEY_USERNAME, "");
+                String savedPassword = props.getProperty(KEY_PASSWORD, "");
+                String savedRemember = props.getProperty(KEY_REMEMBER, "false");
+                String savedUserType = props.getProperty(KEY_USERTYPE, "STUDENT");
+
+                if (!savedUsername.isEmpty() && "true".equals(savedRemember)) {
+                    // 解密密码
+                    String decryptedPassword = decryptPassword(savedPassword);
+
+                    // 设置用户名
+                    usernameField.setText(savedUsername);
+
+                    // 设置密码
+                    if (!decryptedPassword.isEmpty()) {
+                        passwordField.setText(decryptedPassword);
+                    }
+
+                    // 设置用户类型
+                    try {
+                        UserType type = UserType.valueOf(savedUserType);
+                        userTypeCombo.setSelectedItem(type);
+                    } catch (IllegalArgumentException e) {
+                        userTypeCombo.setSelectedIndex(0);
+                    }
+
+                    // 选中记住密码复选框
+                    rememberCheckBox.setSelected(true);
+
+                    // 焦点移到密码字段
+                    passwordField.requestFocus();
+
+                    System.out.println("已加载保存的登录信息");
+                }
+            } catch (Exception e) {
+                System.err.println("加载登录配置失败: " + e.getMessage());
+                // 如果配置文件损坏，删除它
+                configFile.delete();
+            }
+        }
     }
 
+    /**
+     * 保存记住的用户信息
+     */
     private void saveRememberedUser() {
-        // 简化版本：不实现记住密码功能
-        // 在实际项目中可以添加
+        Properties props = new Properties();
+        File configFile = new File(CONFIG_FILE);
+
+        if (rememberCheckBox.isSelected()) {
+            String username = usernameField.getText().trim();
+            String password = new String(passwordField.getPassword());
+            UserType userType = (UserType) userTypeCombo.getSelectedItem();
+
+            if (!username.isEmpty() && !password.isEmpty()) {
+                // 加密密码
+                String encryptedPassword = encryptPassword(password);
+
+                props.setProperty(KEY_USERNAME, username);
+                props.setProperty(KEY_PASSWORD, encryptedPassword);
+                props.setProperty(KEY_USERTYPE, userType.name());
+                props.setProperty(KEY_REMEMBER, "true");
+
+                // 添加注释
+                props.setProperty("comment", "学生宿舍管理系统 - 登录配置");
+
+                try {
+                    // 确保目录存在
+                    File parentDir = configFile.getParentFile();
+                    if (parentDir != null && !parentDir.exists()) {
+                        parentDir.mkdirs();
+                    }
+
+                    try (FileOutputStream fos = new FileOutputStream(configFile)) {
+                        props.store(fos, "Login Configuration");
+                        System.out.println("登录信息已保存");
+                    }
+                } catch (Exception e) {
+                    System.err.println("保存登录配置失败: " + e.getMessage());
+                }
+            }
+        } else {
+            // 如果不记住密码，删除配置文件
+            if (configFile.exists()) {
+                boolean deleted = configFile.delete();
+                if (deleted) {
+                    System.out.println("已清除保存的登录信息");
+                }
+            }
+        }
     }
 
+    /**
+     * 简单的密码加密（Base64 + 简单混淆）
+     */
+    private String encryptPassword(String password) {
+        try {
+            // 添加混淆字符串
+            String mixed = password + ENCRYPTION_KEY;
+
+            // Base64编码
+            String encoded = Base64.getEncoder().encodeToString(mixed.getBytes("UTF-8"));
+
+            // 简单反转
+            return new StringBuilder(encoded).reverse().toString();
+        } catch (Exception e) {
+            System.err.println("密码加密失败: " + e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * 密码解密
+     */
+    private String decryptPassword(String encrypted) {
+        try {
+            if (encrypted == null || encrypted.isEmpty()) {
+                return "";
+            }
+
+            // 反转回来
+            String reversed = new StringBuilder(encrypted).reverse().toString();
+
+            // Base64解码
+            byte[] decodedBytes = Base64.getDecoder().decode(reversed);
+            String decoded = new String(decodedBytes, "UTF-8");
+
+            // 移除混淆字符串
+            if (decoded.endsWith(ENCRYPTION_KEY)) {
+                return decoded.substring(0, decoded.length() - ENCRYPTION_KEY.length());
+            }
+
+            return "";
+        } catch (Exception e) {
+            System.err.println("密码解密失败: " + e.getMessage());
+            return "";
+        }
+    }
+
+    /**
+     * 登录方法
+     */
     private void login() {
         String username = usernameField.getText().trim();
         String password = new String(passwordField.getPassword());
@@ -288,6 +473,9 @@ public class LoginFrame extends JFrame {
         if (user != null) {
             currentUser = user;
 
+            // 保存记住密码设置
+            saveRememberedUser();
+
             JOptionPane.showMessageDialog(this,
                     String.format("登录成功！\n欢迎您，%s！",
                             user.getName() != null ? user.getName() : user.getUsername()),
@@ -307,20 +495,36 @@ public class LoginFrame extends JFrame {
         }
     }
 
+    /**
+     * 显示注册对话框
+     */
     private void showRegisterDialog() {
-        RegisterDialog registerDialog = new RegisterDialog(this);
+        RegisterDialog registerDialog;
+        registerDialog = new RegisterDialog(this);
         registerDialog.setVisible(true);
     }
 
+    /**
+     * 重置表单
+     */
     private void resetForm() {
         usernameField.setText("");
         passwordField.setText("");
         userTypeCombo.setSelectedIndex(0);
         rememberCheckBox.setSelected(false);
         usernameField.requestFocus();
+
+        // 清除保存的登录信息
+        File configFile = new File(CONFIG_FILE);
+        if (configFile.exists()) {
+            configFile.delete();
+        }
     }
 
-    private void exitApplication() {
+    /**
+     * 确认退出
+     */
+    private void confirmExit() {
         int confirm = JOptionPane.showConfirmDialog(this,
                 "确定要退出学生宿舍管理系统吗？",
                 "确认退出",
@@ -328,24 +532,31 @@ public class LoginFrame extends JFrame {
                 JOptionPane.QUESTION_MESSAGE);
 
         if (confirm == JOptionPane.YES_OPTION) {
+            // 清除内存中的密码
+            passwordField.setText("");
             dispose();
             System.exit(0);
         }
     }
 
+    /**
+     * 打开主系统
+     */
     private void openMainSystem() {
+        // 在主线程中创建和显示主界面
         EventQueue.invokeLater(new Runnable() {
             @Override
             public void run() {
                 try {
-                    // 传递当前用户信息到MainFrame
                     MainFrame mainFrame = new MainFrame(currentUser);
 
                     // 根据用户类型设置标题
-                    String userTypeStr = currentUser.getUserType().getDescription();
-                    String userName = currentUser.getName() != null ?
-                            currentUser.getName() : currentUser.getUsername();
-                    mainFrame.setTitle("学生宿舍管理系统 - " + userTypeStr + "(" + userName + ")");
+                    if (currentUser != null) {
+                        String userTypeStr = currentUser.getUserType().getDescription();
+                        String userName = currentUser.getName() != null ?
+                                currentUser.getName() : currentUser.getUsername();
+                        mainFrame.setTitle("学生宿舍管理系统 - " + userTypeStr + "(" + userName + ")");
+                    }
 
                     // 显示主窗口
                     mainFrame.setVisible(true);
@@ -362,10 +573,6 @@ public class LoginFrame extends JFrame {
                 }
             }
         });
-    }
-
-    public User getCurrentUser() {
-        return currentUser;
     }
 
     public static void main(String[] args) {
