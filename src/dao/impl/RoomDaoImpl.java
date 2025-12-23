@@ -39,7 +39,11 @@ public class RoomDaoImpl implements RoomDao {
                 String status = rs.getString("status");
                 String remarks = rs.getString("remarks");
 
-                Room r = new Room(room_number, building, room_type, total_beds, occupied, available_beds, monitor, phone, hygiene_score, status, remarks);
+                // Convert string values to enums
+                Room.RoomType roomType = Room.RoomType.valueOf(room_type.toUpperCase());
+                Room.RoomStatus roomStatus = Room.RoomStatus.valueOf(status.toUpperCase());
+                
+                Room r = new Room(room_number, building, roomType, total_beds, occupied, available_beds, monitor, phone, hygiene_score, roomStatus, remarks);
                 list.add(r);
             }
         } catch (Exception e) {
@@ -61,16 +65,16 @@ public class RoomDaoImpl implements RoomDao {
             if (conn == null) return false;
             String sql = "INSERT INTO room (room_number, building, room_type, total_beds, occupied, available_beds, monitor, phone, hygiene_score, status, remarks) VALUES (?,?,?,?,?,?,?,?,?,?,?)";
             ps = conn.prepareStatement(sql);
-            ps.setString(1, room.getRoom_number());
+            ps.setString(1, room.getRoomNumber());
             ps.setString(2, room.getBuilding());
-            ps.setString(3, room.getRoom_type());
-            ps.setInt(4, room.getTotal_beds());
+            ps.setString(3, room.getRoomType().name());
+            ps.setInt(4, room.getTotalBeds());
             ps.setInt(5, room.getOccupied());
-            ps.setInt(6, room.getAvailable_beds());
+            ps.setInt(6, room.getAvailableBeds());
             ps.setString(7, room.getMonitor());
             ps.setString(8, room.getPhone());
-            ps.setInt(9, room.getHygiene_score());
-            ps.setString(10, room.getStatus());
+            ps.setInt(9, room.getHygieneScore());
+            ps.setString(10, room.getStatus().name());
             ps.setString(11, room.getRemarks());
 
             int c = ps.executeUpdate();
@@ -98,16 +102,16 @@ public class RoomDaoImpl implements RoomDao {
 
             ps = conn.prepareStatement(sql);
             ps.setString(1, room.getBuilding());
-            ps.setString(2, room.getRoom_type());
-            ps.setInt(3, room.getTotal_beds());
+            ps.setString(2, room.getRoomType().name());
+            ps.setInt(3, room.getTotalBeds());
             ps.setInt(4, room.getOccupied());
-            ps.setInt(5, room.getAvailable_beds());
+            ps.setInt(5, room.getAvailableBeds());
             ps.setString(6, room.getMonitor());
             ps.setString(7, room.getPhone());
-            ps.setInt(8, room.getHygiene_score());
-            ps.setString(9, room.getStatus());
+            ps.setInt(8, room.getHygieneScore());
+            ps.setString(9, room.getStatus().name());
             ps.setString(10, room.getRemarks());
-            ps.setString(11, room.getRoom_number());
+            ps.setString(11, room.getRoomNumber());
 
             int c = ps.executeUpdate();
             return c > 0;

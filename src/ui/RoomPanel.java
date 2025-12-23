@@ -8,6 +8,8 @@ import java.sql.*;
 import java.util.List;
 
 import model.Room;
+import model.Room.RoomType;
+import model.Room.RoomStatus;
 import service.RoomService;
 import service.impl.RoomServiceImpl;
 
@@ -181,16 +183,16 @@ public class RoomPanel extends JPanel {
             List<Room> rooms = roomService.findAll();
             for (Room r : rooms) {
                 Object[] row = {
-                        r.getRoom_number(),
+                        r.getRoomNumber(),
                         r.getBuilding(),
-                        r.getRoom_type(),
-                        r.getTotal_beds(),
+                        r.getRoomType().getDescription(),
+                        r.getTotalBeds(),
                         r.getOccupied(),
-                        r.getAvailable_beds(),
+                        r.getAvailableBeds(),
                         r.getMonitor(),
                         r.getPhone(),
-                        r.getHygiene_score(),
-                        r.getStatus(),
+                        r.getHygieneScore(),
+                        r.getStatus().getDescription(),
                         r.getRemarks()
                 };
                 tableModel.addRow(row);
@@ -339,7 +341,9 @@ public class RoomPanel extends JPanel {
             // 确保 available 不超过 total
             available = Math.max(0, Math.min(available, totalBeds));
 
-            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
+            RoomType typeEnum = RoomType.fromDescription(roomType);
+            RoomStatus statusEnum = RoomStatus.fromDescription(statusText);
+            Room room = new Room(roomNumber, building, typeEnum, totalBeds, occupied, available, monitor, phone, hygiene, statusEnum, remarks);
             boolean ok = roomService.add(room);
             if (ok) {
                 loadRoomsFromDB();
@@ -479,7 +483,9 @@ public class RoomPanel extends JPanel {
 
             available = Math.max(0, Math.min(available, totalBeds));
 
-            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
+            RoomType typeEnum = RoomType.fromDescription(roomType);
+            RoomStatus statusEnum = RoomStatus.fromDescription(statusText);
+            Room room = new Room(roomNumber, building, typeEnum, totalBeds, occupied, available, monitor, phone, hygiene, statusEnum, remarks);
             boolean ok = roomService.update(room);
             if (ok) {
                 loadRoomsFromDB();
