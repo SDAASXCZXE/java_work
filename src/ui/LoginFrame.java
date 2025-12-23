@@ -499,7 +499,8 @@ public class LoginFrame extends JFrame {
      * 显示注册对话框
      */
     private void showRegisterDialog() {
-        RegisterDialog registerDialog = new RegisterDialog(this);
+        RegisterDialog registerDialog;
+        registerDialog = new RegisterDialog(this);
         registerDialog.setVisible(true);
     }
 

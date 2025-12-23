@@ -86,10 +86,6 @@ public class MainFrame extends JFrame {
             tabs.addTab("访客登记", new VisitorPanel());
             tabs.addTab("考勤管理", new AttendancePanel());
 
-            if (userType == UserType.ADMIN) {
-                // 只有系统管理员能看到这些功能
-                tabs.addTab("系统设置", createSettingsPanel());
-            }
         }
     }
 
@@ -289,63 +285,7 @@ public class MainFrame extends JFrame {
         }
     }
 
-    /**
-     * 创建系统设置面板
-     */
-    private JPanel createSettingsPanel() {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        JPanel contentPanel = new JPanel();
-        contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
-
-        // 标题
-        JLabel titleLabel = new JLabel("系统设置");
-        titleLabel.setFont(new Font("微软雅黑", Font.BOLD, 24));
-        titleLabel.setForeground(new Color(70, 130, 180));
-        titleLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
-
-        // 设置选项
-        JPanel settingsPanel = new JPanel(new GridLayout(5, 2, 10, 10));
-        settingsPanel.setBorder(BorderFactory.createTitledBorder("设置选项"));
-        settingsPanel.setMaximumSize(new Dimension(600, 300));
-
-        String[] settings = {"数据备份路径:", "自动保存间隔:", "默认用户类型:", "系统语言:", "主题颜色:"};
-        String[] defaults = {"./backup/", "30分钟", "学生", "中文", "蓝色主题"};
-
-        for (int i = 0; i < settings.length; i++) {
-            settingsPanel.add(new JLabel(settings[i]));
-            JTextField field = new JTextField(defaults[i]);
-            settingsPanel.add(field);
-        }
-
-        // 按钮面板
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-
-        JButton saveBtn = new JButton("保存设置");
-        saveBtn.setBackground(new Color(70, 130, 180));
-        saveBtn.setForeground(Color.WHITE);
-        saveBtn.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this, "设置已保存！", "提示", JOptionPane.INFORMATION_MESSAGE);
-        });
-
-        JButton resetBtn = new JButton("恢复默认");
-        resetBtn.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this, "设置已恢复为默认值！", "提示", JOptionPane.INFORMATION_MESSAGE);
-        });
-
-        buttonPanel.add(saveBtn);
-        buttonPanel.add(resetBtn);
-
-        contentPanel.add(titleLabel);
-        contentPanel.add(Box.createVerticalStrut(30));
-        contentPanel.add(settingsPanel);
-        contentPanel.add(Box.createVerticalStrut(30));
-        contentPanel.add(buttonPanel);
-
-        panel.add(contentPanel, BorderLayout.CENTER);
-        return panel;
-    }
 
     /**
      * 帮助菜单功能

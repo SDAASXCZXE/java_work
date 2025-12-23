@@ -1,6 +1,10 @@
 package ui;
 
-import model.Student;  // 导入Student类
+import model.Student;
+import model.Repair;
+import model.Holiday;
+import model.RoomChange;
+
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
@@ -9,7 +13,12 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * 学生个人面板 - 学生登录后可见
@@ -23,18 +32,38 @@ public class StudentDashboardPanel extends JPanel {
     // 使用Student对象存储学生信息
     private Student student;
 
+    // 数据存储列表
+    private List<Repair> repairList = new ArrayList<>();
+    private List<Holiday> holidayList = new ArrayList<>();
+    private List<RoomChange> roomChangeList = new ArrayList<>();
+
+    // 日期格式化器
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+    private static final SimpleDateFormat DATE_TIME_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+    private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
     public StudentDashboardPanel(String studentId, String studentName) {
         // 创建Student对象
         this.student = new Student();
         this.student.setSno(studentId);
         this.student.setName(studentName);
-        // 其他字段可以使用默认值，或者根据需要设置
+
+        // 设置学生信息（包括正确的入学日期）
         this.student.setGender("男");
         this.student.setCollege("计算机学院");
         this.student.setMajor("软件工程");
         this.student.setClazz("1班");
         this.student.setPhone("13800138001");
-        this.student.setInDate(new Date());
+
+        // 正确设置入学日期为LocalDate
+        try {
+            LocalDate inDate = LocalDate.parse("2023-09-01");
+            this.student.setInDate(inDate);
+        } catch (DateTimeParseException e) {
+            // 如果解析失败，使用当前日期
+            this.student.setInDate(LocalDate.now());
+            System.err.println("设置入学日期失败，使用当前日期: " + e.getMessage());
+        }
 
         initUI();
         loadSampleData();
@@ -178,11 +207,10 @@ public class StudentDashboardPanel extends JPanel {
         panel.add(new JLabel("申请类型："), gbc);
 
         gbc.gridx = 1;
-        String[] types = {"请选择", "申请换宿", "申请退宿", "申请调整床位"};
-        JComboBox<String> typeCombo = new JComboBox<>(types);
+        JComboBox<String> typeCombo = new JComboBox<>(new String[]{"请选择", "申请换宿", "申请退宿", "申请调整床位"});
         panel.add(typeCombo, gbc);
 
-        // 当前宿舍（这里用班级代替宿舍）
+        // 当前班级
         gbc.gridx = 0;
         gbc.gridy = 1;
         panel.add(new JLabel("当前班级："), gbc);
@@ -195,16 +223,26 @@ public class StudentDashboardPanel extends JPanel {
         // 目标宿舍（换宿时使用）
         gbc.gridx = 0;
         gbc.gridy = 2;
-        panel.add(new JLabel("目标宿舍："), gbc);
+        panel.add(new JLabel("目标宿舍楼栋："), gbc);
 
         gbc.gridx = 1;
-        JTextField targetDormField = new JTextField();
-        targetDormField.setEnabled(false);
-        panel.add(targetDormField, gbc);
+        JTextField newBuildingField = new JTextField();
+        newBuildingField.setEnabled(false);
+        panel.add(newBuildingField, gbc);
+
+        // 目标宿舍号
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        panel.add(new JLabel("目标宿舍号："), gbc);
+
+        gbc.gridx = 1;
+        JTextField newRoomField = new JTextField();
+        newRoomField.setEnabled(false);
+        panel.add(newRoomField, gbc);
 
         // 申请原因
         gbc.gridx = 0;
-        gbc.gridy = 3;
+        gbc.gridy = 4;
         panel.add(new JLabel("申请原因："), gbc);
 
         gbc.gridx = 1;
@@ -217,12 +255,14 @@ public class StudentDashboardPanel extends JPanel {
         // 类型选择监听
         typeCombo.addActionListener(e -> {
             String selected = (String) typeCombo.getSelectedItem();
-            targetDormField.setEnabled("申请换宿".equals(selected));
+            boolean enabled = "申请换宿".equals(selected);
+            newBuildingField.setEnabled(enabled);
+            newRoomField.setEnabled(enabled);
         });
 
         // 按钮区域
         gbc.gridx = 0;
-        gbc.gridy = 4;
+        gbc.gridy = 5;
         gbc.gridwidth = 3;
         gbc.fill = GridBagConstraints.CENTER;
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
@@ -230,7 +270,7 @@ public class StudentDashboardPanel extends JPanel {
         JButton submitBtn = new JButton("提交申请");
         submitBtn.setBackground(new Color(70, 130, 180));
         submitBtn.setForeground(Color.WHITE);
-        submitBtn.addActionListener(e -> submitTransferApplication(typeCombo, targetDormField, reasonArea));
+        submitBtn.addActionListener(e -> submitTransferApplication(typeCombo, newBuildingField, newRoomField, reasonArea));
 
         JButton viewBtn = new JButton("查看申请记录");
         viewBtn.addActionListener(e -> viewTransferRecords());
@@ -255,18 +295,30 @@ public class StudentDashboardPanel extends JPanel {
 
         // 登记类型
         formPanel.add(new JLabel("登记类型："));
-        JComboBox<String> typeCombo = new JComboBox<>(new String[]{"离校登记", "返校登记"});
+        JComboBox<Holiday.HolidayType> typeCombo = new JComboBox<>(Holiday.HolidayType.values());
+        typeCombo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Holiday.HolidayType) {
+                    setText(((Holiday.HolidayType) value).getDescription());
+                }
+                return this;
+            }
+        });
         formPanel.add(typeCombo);
 
         // 离校时间
-        formPanel.add(new JLabel("离校时间："));
+        formPanel.add(new JLabel("离校时间（yyyy-MM-dd）："));
         JTextField leaveDateField = new JTextField();
+        leaveDateField.setToolTipText("请输入格式为 yyyy-MM-dd 的日期，例如：2024-01-15");
         formPanel.add(leaveDateField);
 
         // 预计返校时间
-        formPanel.add(new JLabel("返校时间："));
-        JTextField returnDateField = new JTextField();
-        formPanel.add(returnDateField);
+        formPanel.add(new JLabel("预计返校时间（yyyy-MM-dd）："));
+        JTextField plannedBackDateField = new JTextField();
+        plannedBackDateField.setToolTipText("请输入格式为 yyyy-MM-dd 的日期，例如：2024-02-25");
+        formPanel.add(plannedBackDateField);
 
         // 目的地
         formPanel.add(new JLabel("目的地："));
@@ -275,13 +327,13 @@ public class StudentDashboardPanel extends JPanel {
 
         // 紧急联系人
         formPanel.add(new JLabel("紧急联系人："));
-        JTextField emergencyContactField = new JTextField();
-        formPanel.add(emergencyContactField);
+        JTextField contactPersonField = new JTextField();
+        formPanel.add(contactPersonField);
 
         // 联系电话
         formPanel.add(new JLabel("联系电话："));
-        JTextField emergencyPhoneField = new JTextField();
-        formPanel.add(emergencyPhoneField);
+        JTextField contactPhoneField = new JTextField();
+        formPanel.add(contactPhoneField);
 
         panel.add(formPanel, BorderLayout.NORTH);
 
@@ -292,8 +344,8 @@ public class StudentDashboardPanel extends JPanel {
         registerBtn.setBackground(new Color(46, 139, 87));
         registerBtn.setForeground(Color.WHITE);
         registerBtn.addActionListener(e -> submitHolidayRegistration(
-                typeCombo, leaveDateField, returnDateField,
-                destinationField, emergencyContactField, emergencyPhoneField));
+                typeCombo, leaveDateField, plannedBackDateField,
+                destinationField, contactPersonField, contactPhoneField));
 
         JButton recordBtn = new JButton("查看登记记录");
         recordBtn.addActionListener(e -> viewHolidayRecords());
@@ -358,9 +410,16 @@ public class StudentDashboardPanel extends JPanel {
         String[] labels = {"学号：", "姓名：", "性别：", "学院：", "专业：",
                 "班级：", "电话：", "入学日期："};
 
-        // 格式化入学日期
-        String inDateStr = student.getInDate() != null ?
-                new SimpleDateFormat("yyyy-MM-dd").format(student.getInDate()) : "未知";
+        // 安全格式化入学日期
+        String inDateStr = "未知";
+        if (student.getInDate() != null) {
+            try {
+                inDateStr = student.getInDate().format(DATE_FORMATTER);
+            } catch (Exception e) {
+                inDateStr = "格式错误";
+                System.err.println("格式化入学日期失败: " + e.getMessage());
+            }
+        }
 
         String[] values = {
                 student.getSno(),
@@ -409,7 +468,7 @@ public class StudentDashboardPanel extends JPanel {
         Timer timer = new Timer(1000, new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                timeLabel.setText(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+                timeLabel.setText(DATE_TIME_FORMAT.format(new Date()));
             }
         });
         timer.start();
@@ -438,7 +497,7 @@ public class StudentDashboardPanel extends JPanel {
     }
 
     /**
-     * 新建报修
+     * 新建报修（使用Repair类）
      */
     private void createNewRepair() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "新建报修", true);
@@ -449,10 +508,18 @@ public class StudentDashboardPanel extends JPanel {
         JPanel formPanel = new JPanel(new GridLayout(6, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // 报修类型
+        // 报修类型（使用Repair.RepairType枚举）
         formPanel.add(new JLabel("问题类型："));
-        JComboBox<String> typeCombo = new JComboBox<>(new String[]{
-                "水电问题", "家具损坏", "电器故障", "门窗问题", "卫生问题", "其他"
+        JComboBox<Repair.RepairType> typeCombo = new JComboBox<>(Repair.RepairType.values());
+        typeCombo.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Repair.RepairType) {
+                    setText(((Repair.RepairType) value).getDescription());
+                }
+                return this;
+            }
         });
         formPanel.add(typeCombo);
 
@@ -485,7 +552,7 @@ public class StudentDashboardPanel extends JPanel {
         submitBtn.setBackground(new Color(70, 130, 180));
         submitBtn.setForeground(Color.WHITE);
         submitBtn.addActionListener(e -> {
-            String type = (String) typeCombo.getSelectedItem();
+            Repair.RepairType repairType = (Repair.RepairType) typeCombo.getSelectedItem();
             String description = descriptionArea.getText().trim();
 
             if (description.isEmpty()) {
@@ -493,14 +560,29 @@ public class StudentDashboardPanel extends JPanel {
                 return;
             }
 
+            // 创建Repair对象（假设楼栋和宿舍号从其他信息获取）
+            String building = "1号楼"; // 默认值
+            String roomNumber = student.getClazz(); // 使用班级作为宿舍号
+            Repair repair = Repair.createNewRepair(
+                    student.getSno(),
+                    roomNumber,
+                    building,
+                    repairType,
+                    description,
+                    ""
+            );
+
+            // 添加到数据列表
+            repairList.add(repair);
+
             // 添加到表格
             Object[] newRow = {
-                    "R" + System.currentTimeMillis(),
-                    new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()),
-                    type,
-                    description,
-                    "待处理",
-                    "0%"
+                    repair.getId(),
+                    repair.getSubmitTime().format(DATE_TIME_FORMATTER),
+                    repair.getRepairType().getDescription(),
+                    repair.getDescription(),
+                    repair.getStatus().getDescription(),
+                    repair.getProgress() + "%"
             };
             repairTableModel.addRow(newRow);
 
@@ -538,7 +620,7 @@ public class StudentDashboardPanel extends JPanel {
     }
 
     /**
-     * 跟踪维修进度
+     * 跟踪维修进度（使用Repair类）
      */
     private void trackRepairProgress() {
         int selectedRow = repairTable.getSelectedRow();
@@ -548,20 +630,46 @@ public class StudentDashboardPanel extends JPanel {
         }
 
         String repairId = repairTableModel.getValueAt(selectedRow, 0).toString();
-        String status = repairTableModel.getValueAt(selectedRow, 4).toString();
 
-        JOptionPane.showMessageDialog(this,
-                "报修单号：" + repairId + "\n当前状态：" + status + "\n\n维修进度跟踪中...",
-                "维修进度",
-                JOptionPane.INFORMATION_MESSAGE);
+        // 从数据列表中查找对应的Repair对象
+        Repair repair = repairList.stream()
+                .filter(r -> r.getId().equals(repairId))
+                .findFirst()
+                .orElse(null);
+
+        if (repair == null) {
+            JOptionPane.showMessageDialog(this, "未找到对应的报修记录！", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        String message = String.format(
+                "报修单号：%s\n" +
+                        "报修时间：%s\n" +
+                        "问题类型：%s\n" +
+                        "当前状态：%s\n" +
+                        "处理进度：%s%%\n" +
+                        "最后更新：%s\n\n" +
+                        "维修进度跟踪中...",
+                repair.getId(),
+                repair.getSubmitTime().format(DATE_TIME_FORMATTER),
+                repair.getRepairType().getDescription(),
+                repair.getStatus().getDescription(),
+                repair.getProgress(),
+                repair.getUpdateTime().format(DATE_TIME_FORMATTER)
+        );
+
+        JOptionPane.showMessageDialog(this, message, "维修进度", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**
-     * 提交调宿申请
+     * 提交调宿申请（使用RoomChange类）
      */
-    private void submitTransferApplication(JComboBox<String> typeCombo, JTextField targetField, JTextArea reasonArea) {
+    private void submitTransferApplication(JComboBox<String> typeCombo, JTextField newBuildingField,
+                                           JTextField newRoomField, JTextArea reasonArea) {
         String type = (String) typeCombo.getSelectedItem();
         String reason = reasonArea.getText().trim();
+        String newBuilding = newBuildingField.getText().trim();
+        String newRoom = newRoomField.getText().trim();
 
         if ("请选择".equals(type)) {
             JOptionPane.showMessageDialog(this, "请选择申请类型！", "错误", JOptionPane.ERROR_MESSAGE);
@@ -573,36 +681,74 @@ public class StudentDashboardPanel extends JPanel {
             return;
         }
 
-        if ("申请换宿".equals(type) && targetField.getText().trim().isEmpty()) {
-            JOptionPane.showMessageDialog(this, "请填写目标宿舍！", "错误", JOptionPane.ERROR_MESSAGE);
-            return;
+        if ("申请换宿".equals(type)) {
+            if (newBuilding.isEmpty() || newRoom.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "请填写目标宿舍楼栋和宿舍号！", "错误", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 创建RoomChange对象
+            RoomChange roomChange = RoomChange.createNewApplication(
+                    student.getSno(),
+                    "1号楼", // 原楼栋（默认值）
+                    student.getClazz(), // 原宿舍号（用班级代替）
+                    newBuilding,
+                    newRoom,
+                    reason
+            );
+
+            // 添加到数据列表
+            roomChangeList.add(roomChange);
         }
 
-        String message = String.format("申请类型：%s\n当前班级：%s\n目标宿舍：%s\n申请原因：%s\n\n确认提交申请？",
-                type, student.getClazz(), targetField.getText(), reason);
+        String message = String.format("申请类型：%s\n当前班级：%s\n目标宿舍：%s%s%s\n申请原因：%s\n\n确认提交申请？",
+                type,
+                student.getClazz(),
+                "申请换宿".equals(type) ? newBuilding : "",
+                "申请换宿".equals(type) && !newRoom.isEmpty() ? "号楼 " : "",
+                "申请换宿".equals(type) ? newRoom : "",
+                reason);
 
         int confirm = JOptionPane.showConfirmDialog(this, message, "确认提交", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             JOptionPane.showMessageDialog(this, "申请已提交，等待审核！", "成功", JOptionPane.INFORMATION_MESSAGE);
             typeCombo.setSelectedIndex(0);
-            targetField.setText("");
+            newBuildingField.setText("");
+            newRoomField.setText("");
             reasonArea.setText("");
         }
     }
 
     /**
-     * 查看调宿记录
+     * 查看调宿记录（使用RoomChange类）
      */
     private void viewTransferRecords() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "调宿申请记录", true);
         dialog.setSize(600, 400);
         dialog.setLocationRelativeTo(this);
 
-        String[] columns = {"申请时间", "申请类型", "当前班级", "目标宿舍", "申请原因", "审核状态"};
-        Object[][] data = {
-                {"2024-01-15", "申请换宿", student.getClazz(), "B202", "宿舍环境问题", "审核通过"},
-                {"2024-01-10", "申请退宿", student.getClazz(), "", "毕业离校", "待审核"}
-        };
+        String[] columns = {"申请时间", "申请类型", "原宿舍", "目标宿舍", "申请原因", "审核状态"};
+
+        // 创建数据数组
+        Object[][] data = new Object[roomChangeList.size()][6];
+
+        for (int i = 0; i < roomChangeList.size(); i++) {
+            RoomChange rc = roomChangeList.get(i);
+            data[i][0] = rc.getApplyTime().format(DATE_TIME_FORMATTER);
+            data[i][1] = "申请换宿"; // 默认类型
+            data[i][2] = rc.getOldBuilding() + rc.getOldRoomNumber();
+            data[i][3] = rc.getNewBuilding() + rc.getNewRoomNumber();
+            data[i][4] = rc.getReason();
+            data[i][5] = rc.getStatus().getDescription();
+        }
+
+        // 如果没有数据，显示默认数据
+        if (roomChangeList.isEmpty()) {
+            data = new Object[][] {
+                    {"2024-01-15", "申请换宿", "1号楼" + student.getClazz(), "B栋202", "宿舍环境问题", "审核通过"},
+                    {"2024-01-10", "申请退宿", "1号楼" + student.getClazz(), "", "毕业离校", "待审核"}
+            };
+        }
 
         JTable table = new JTable(data, columns);
         JScrollPane scrollPane = new JScrollPane(table);
@@ -612,51 +758,99 @@ public class StudentDashboardPanel extends JPanel {
     }
 
     /**
-     * 提交假期登记
+     * 提交假期登记（使用Holiday类）
      */
-    private void submitHolidayRegistration(JComboBox<String> typeCombo, JTextField leaveField,
-                                           JTextField returnField, JTextField destinationField,
-                                           JTextField contactField, JTextField phoneField) {
-        String type = (String) typeCombo.getSelectedItem();
-        String leaveDate = leaveField.getText().trim();
-        String returnDate = returnField.getText().trim();
+    private void submitHolidayRegistration(JComboBox<Holiday.HolidayType> typeCombo, JTextField leaveField,
+                                           JTextField plannedBackField, JTextField destinationField,
+                                           JTextField contactPersonField, JTextField contactPhoneField) {
+        Holiday.HolidayType holidayType = (Holiday.HolidayType) typeCombo.getSelectedItem();
+        String leaveDateStr = leaveField.getText().trim();
+        String plannedBackStr = plannedBackField.getText().trim();
         String destination = destinationField.getText().trim();
-        String contact = contactField.getText().trim();
-        String phone = phoneField.getText().trim();
+        String contactPerson = contactPersonField.getText().trim();
+        String contactPhone = contactPhoneField.getText().trim();
 
-        if (leaveDate.isEmpty()) {
+        if (leaveDateStr.isEmpty()) {
             JOptionPane.showMessageDialog(this, "请填写离校时间！", "错误", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        if ("离校登记".equals(type) && returnDate.isEmpty()) {
+        if (holidayType == Holiday.HolidayType.LEAVE && plannedBackStr.isEmpty()) {
             JOptionPane.showMessageDialog(this, "请填写预计返校时间！", "错误", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        if ("离校登记".equals(type) && destination.isEmpty()) {
+        if (holidayType == Holiday.HolidayType.LEAVE && destination.isEmpty()) {
             JOptionPane.showMessageDialog(this, "请填写目的地！", "错误", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        String message = String.format("登记类型：%s\n离校时间：%s\n返校时间：%s\n目的地：%s\n紧急联系人：%s\n联系电话：%s\n\n确认提交登记？",
-                type, leaveDate, returnDate, destination, contact, phone);
+        try {
+            LocalDate leaveDate = LocalDate.parse(leaveDateStr);
+            LocalDate plannedBackDate = plannedBackStr.isEmpty() ? null : LocalDate.parse(plannedBackStr);
 
-        int confirm = JOptionPane.showConfirmDialog(this, message, "确认提交", JOptionPane.YES_NO_OPTION);
-        if (confirm == JOptionPane.YES_OPTION) {
-            JOptionPane.showMessageDialog(this, "假期登记已提交！", "成功", JOptionPane.INFORMATION_MESSAGE);
+            // 创建Holiday对象
+            Holiday holiday;
+            String building = "1号楼"; // 默认楼栋
+            String roomNumber = student.getClazz(); // 使用班级作为宿舍号
 
-            // 清空表单
-            leaveField.setText("");
-            returnField.setText("");
-            destinationField.setText("");
-            contactField.setText("");
-            phoneField.setText("");
+            if (holidayType == Holiday.HolidayType.LEAVE) {
+                holiday = Holiday.createLeaveRegistration(
+                        student.getSno(),
+                        roomNumber,
+                        building,
+                        leaveDate,
+                        plannedBackDate
+                );
+            } else {
+                // 返校登记
+                holiday = Holiday.createBackRegistration(
+                        student.getSno(),
+                        roomNumber,
+                        building,
+                        leaveDate,
+                        plannedBackDate,
+                        LocalDate.now() // 实际返校日期设为当前日期
+                );
+            }
+
+            // 设置可选信息
+            if (!destination.isEmpty()) holiday.setDestination(destination);
+            if (!contactPerson.isEmpty()) holiday.setContactPerson(contactPerson);
+            if (!contactPhone.isEmpty()) holiday.setContactPhone(contactPhone);
+
+            // 添加到数据列表
+            holidayList.add(holiday);
+
+            String message = String.format("登记类型：%s\n离校时间：%s\n预计返校时间：%s\n目的地：%s\n紧急联系人：%s\n联系电话：%s\n\n确认提交登记？",
+                    holidayType.getDescription(), leaveDateStr,
+                    plannedBackStr.isEmpty() ? "无" : plannedBackStr,
+                    destination, contactPerson, contactPhone);
+
+            int confirm = JOptionPane.showConfirmDialog(this, message, "确认提交", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                JOptionPane.showMessageDialog(this, "假期登记已提交！", "成功", JOptionPane.INFORMATION_MESSAGE);
+
+                // 清空表单
+                leaveField.setText("");
+                plannedBackField.setText("");
+                destinationField.setText("");
+                contactPersonField.setText("");
+                contactPhoneField.setText("");
+            }
+        } catch (DateTimeParseException e) {
+            JOptionPane.showMessageDialog(this,
+                    "日期格式错误，请使用yyyy-MM-dd格式！例如：2024-01-15",
+                    "错误", JOptionPane.ERROR_MESSAGE);
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(this,
+                    "提交失败: " + e.getMessage(),
+                    "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     /**
-     * 查看假期记录
+     * 查看假期记录（使用Holiday类）
      */
     private void viewHolidayRecords() {
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "假期登记记录", true);
@@ -664,10 +858,28 @@ public class StudentDashboardPanel extends JPanel {
         dialog.setLocationRelativeTo(this);
 
         String[] columns = {"登记时间", "登记类型", "离校时间", "返校时间", "目的地", "状态"};
-        Object[][] data = {
-                {"2024-01-15 08:30", "离校登记", "2024-01-15", "2024-02-25", "上海", "已返校"},
-                {"2023-12-30 14:20", "离校登记", "2023-12-30", "2024-01-05", "北京", "已返校"}
-        };
+
+        // 创建数据数组
+        Object[][] data = new Object[holidayList.size()][6];
+
+        for (int i = 0; i < holidayList.size(); i++) {
+            Holiday holiday = holidayList.get(i);
+            data[i][0] = holiday.getRegisterTime().format(DATE_TIME_FORMATTER);
+            data[i][1] = holiday.getHolidayType().getDescription();
+            data[i][2] = holiday.getLeaveDate().format(DATE_FORMATTER);
+            data[i][3] = holiday.getPlannedBackDate() != null ?
+                    holiday.getPlannedBackDate().format(DATE_FORMATTER) : "无";
+            data[i][4] = holiday.getDestination().orElse("");
+            data[i][5] = holiday.getStatus().getDescription();
+        }
+
+        // 如果没有数据，显示默认数据
+        if (holidayList.isEmpty()) {
+            data = new Object[][] {
+                    {"2024-01-15 08:30", "离校", "2024-01-15", "2024-02-25", "上海", "已批准"},
+                    {"2023-12-30 14:20", "离校", "2023-12-30", "2024-01-05", "北京", "已完成"}
+            };
+        }
 
         JTable table = new JTable(data, columns);
         JScrollPane scrollPane = new JScrollPane(table);
@@ -677,7 +889,7 @@ public class StudentDashboardPanel extends JPanel {
     }
 
     /**
-     * 显示一键报修对话框
+     * 显示一键报修对话框（使用Repair类）
      */
     private void showQuickRepairDialog() {
         String[] problems = {
@@ -691,15 +903,53 @@ public class StudentDashboardPanel extends JPanel {
                 problems, problems[0]);
 
         if (selected != null) {
-            Object[] newRow = {
-                    "Q" + System.currentTimeMillis(),
-                    new SimpleDateFormat("yyyy-MM-dd HH:mm").format(new Date()),
-                    selected,
+            // 根据选择的问题映射到RepairType
+            Repair.RepairType repairType;
+            switch (selected) {
+                case "厕所堵塞":
+                case "水管漏水":
+                    repairType = Repair.RepairType.WATER_ELEC;
+                    break;
+                case "家具损坏":
+                case "床铺问题":
+                    repairType = Repair.RepairType.FURNITURE;
+                    break;
+                case "网络故障":
+                    repairType = Repair.RepairType.NETWORK;
+                    break;
+                case "空调故障":
+                    repairType = Repair.RepairType.HVAC;
+                    break;
+                default:
+                    repairType = Repair.RepairType.OTHER;
+            }
+
+            // 创建Repair对象
+            String building = "1号楼";
+            String roomNumber = student.getClazz();
+            Repair repair = Repair.createNewRepair(
+                    student.getSno(),
+                    roomNumber,
+                    building,
+                    repairType,
                     "一键报修：" + selected,
-                    "待处理",
-                    "0%"
+                    ""
+            );
+
+            // 添加到数据列表
+            repairList.add(repair);
+
+            // 添加到表格
+            Object[] newRow = {
+                    repair.getId(),
+                    repair.getSubmitTime().format(DATE_TIME_FORMATTER),
+                    repair.getRepairType().getDescription(),
+                    repair.getDescription(),
+                    repair.getStatus().getDescription(),
+                    repair.getProgress() + "%"
             };
             repairTableModel.addRow(newRow);
+
             JOptionPane.showMessageDialog(this, "一键报修已提交！", "成功", JOptionPane.INFORMATION_MESSAGE);
         }
     }
@@ -743,37 +993,117 @@ public class StudentDashboardPanel extends JPanel {
      * 加载示例数据
      */
     private void loadSampleData() {
-        // 加载报修示例数据
-        Object[][] repairData = {
-                {"R20240115001", "2024-01-15 14:30", "水电问题", "厕所水管漏水", "处理中", "50%"},
-                {"R20240110002", "2024-01-10 09:15", "电器故障", "空调不制冷", "已完成", "100%"},
-                {"R20240105003", "2024-01-05 16:45", "家具损坏", "床板断裂", "待处理", "0%"}
-        };
+        try {
+            // 加载报修示例数据（使用Repair类）
+            Repair repair1 = Repair.createNewRepair(
+                    student.getSno(),
+                    student.getClazz(),
+                    "1号楼",
+                    Repair.RepairType.WATER_ELEC,
+                    "厕所水管漏水",
+                    ""
+            );
+            repair1.updateProgress(50);
+            repairList.add(repair1);
 
-        for (Object[] row : repairData) {
-            repairTableModel.addRow(row);
-        }
+            Repair repair2 = Repair.createNewRepair(
+                    student.getSno(),
+                    student.getClazz(),
+                    "1号楼",
+                    Repair.RepairType.HVAC,
+                    "空调不制冷",
+                    ""
+            );
+            repair2.updateProgress(100);
+            repairList.add(repair2);
 
-        // 加载考勤示例数据
-        Object[][] attendanceData = {
-                {"2024-01-15", "星期一", "22:15", "正常", ""},
-                {"2024-01-14", "星期日", "23:45", "晚归", "校外活动"},
-                {"2024-01-13", "星期六", "22:30", "正常", ""},
-                {"2024-01-12", "星期五", "22:00", "正常", ""},
-                {"2024-01-11", "星期四", "21:45", "正常", ""}
-        };
+            Repair repair3 = Repair.createNewRepair(
+                    student.getSno(),
+                    student.getClazz(),
+                    "1号楼",
+                    Repair.RepairType.FURNITURE,
+                    "床板断裂",
+                    ""
+            );
+            repairList.add(repair3);
 
-        for (Object[] row : attendanceData) {
-            attendanceTableModel.addRow(row);
+            // 添加到表格
+            for (Repair repair : repairList) {
+                Object[] row = {
+                        repair.getId(),
+                        repair.getSubmitTime().format(DATE_TIME_FORMATTER),
+                        repair.getRepairType().getDescription(),
+                        repair.getDescription(),
+                        repair.getStatus().getDescription(),
+                        repair.getProgress() + "%"
+                };
+                repairTableModel.addRow(row);
+            }
+
+            // 加载考勤示例数据
+            Object[][] attendanceData = {
+                    {"2024-01-15", "星期一", "22:15", "正常", ""},
+                    {"2024-01-14", "星期日", "23:45", "晚归", "校外活动"},
+                    {"2024-01-13", "星期六", "22:30", "正常", ""},
+                    {"2024-01-12", "星期五", "22:00", "正常", ""},
+                    {"2024-01-11", "星期四", "21:45", "正常", ""}
+            };
+
+            for (Object[] row : attendanceData) {
+                attendanceTableModel.addRow(row);
+            }
+
+            // 加载假期示例数据
+            Holiday holiday1 = Holiday.createLeaveRegistration(
+                    student.getSno(),
+                    student.getClazz(),
+                    "1号楼",
+                    LocalDate.of(2024, 1, 15),
+                    LocalDate.of(2024, 2, 25)
+            );
+            holiday1.setDestination("上海");
+            holiday1.approve();
+            holidayList.add(holiday1);
+
+            // 加载调宿示例数据
+            RoomChange roomChange1 = RoomChange.createNewApplication(
+                    student.getSno(),
+                    "1号楼",
+                    student.getClazz(),
+                    "B栋",
+                    "202",
+                    "宿舍环境问题"
+            );
+            roomChange1.approve("admin001", "同意调换");
+            roomChangeList.add(roomChange1);
+
+        } catch (Exception e) {
+            System.err.println("加载示例数据时出错: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    // 新增getter方法，方便其他类访问学生信息
+    // Getter方法
     public Student getStudent() {
         return student;
     }
 
     public void setStudent(Student student) {
         this.student = student;
+    }
+
+    // 获取报修列表（新增方法）
+    public List<Repair> getRepairList() {
+        return repairList;
+    }
+
+    // 获取假期列表（新增方法）
+    public List<Holiday> getHolidayList() {
+        return holidayList;
+    }
+
+    // 获取调宿列表（新增方法）
+    public List<RoomChange> getRoomChangeList() {
+        return roomChangeList;
     }
 }
