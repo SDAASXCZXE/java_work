@@ -1,5 +1,6 @@
 package ui;
 import javax.swing.*;
+import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -7,6 +8,8 @@ import java.sql.*;
 import java.util.List;
 
 import model.Room;
+import model.Room.RoomType;
+import model.Room.RoomStatus;
 import service.RoomService;
 import service.impl.RoomServiceImpl;
 
@@ -180,16 +183,16 @@ public class RoomPanel extends JPanel {
             List<Room> rooms = roomService.findAll();
             for (Room r : rooms) {
                 Object[] row = {
-                        r.getRoom_number(),
+                        r.getRoomNumber(),
                         r.getBuilding(),
-                        r.getRoom_type(),
-                        r.getTotal_beds(),
+                        r.getRoomType().getDescription(),
+                        r.getTotalBeds(),
                         r.getOccupied(),
-                        r.getAvailable_beds(),
+                        r.getAvailableBeds(),
                         r.getMonitor(),
                         r.getPhone(),
-                        r.getHygiene_score(),
-                        r.getStatus(),
+                        r.getHygieneScore(),
+                        r.getStatus().getDescription(),
                         r.getRemarks()
                 };
                 tableModel.addRow(row);
@@ -276,17 +279,40 @@ public class RoomPanel extends JPanel {
             formPanel.add((Component) fields[i]);
         }
 
-        // 同步 total_beds -> available_beds（当 total 改变时调整可用上限和值）
+        // 三者联动：totalBeds = occupied + available
         try {
-            JSpinner totalSpinner = (JSpinner) fields[3];
-            JSpinner availSpinner = (JSpinner) fields[5];
+            JSpinner totalSpinner = (JSpinner) fields[3];     // 总床位
+            JSpinner occupiedSpinner = (JSpinner) fields[4]; // 已住人数
+            JSpinner availSpinner = (JSpinner) fields[5];    // 空床位
+
+            SpinnerNumberModel occModel = (SpinnerNumberModel) occupiedSpinner.getModel();
             SpinnerNumberModel availModel = (SpinnerNumberModel) availSpinner.getModel();
-            totalSpinner.addChangeListener(e -> {
-                int tv = (Integer) totalSpinner.getValue();
-                availModel.setMaximum(tv);
-                if ((Integer) availSpinner.getValue() > tv) availSpinner.setValue(tv);
-            });
+
+            ChangeListener listener = e -> {
+                int total = (Integer) totalSpinner.getValue();
+                int occupied = (Integer) occupiedSpinner.getValue();
+
+                // 已住人数不能超过总床位
+                if (occupied > total) {
+                    occupied = total;
+                    occupiedSpinner.setValue(total);
+                }
+
+                int available = total - occupied;
+
+                // 更新模型约束
+                occModel.setMaximum(total);
+                availModel.setMaximum(total);
+
+                // 自动计算空床位
+                availSpinner.setValue(available);
+            };
+
+            totalSpinner.addChangeListener(listener);
+            occupiedSpinner.addChangeListener(listener);
+
         } catch (Exception ignored) {}
+
 
         dialog.add(formPanel, BorderLayout.CENTER);
 
@@ -315,7 +341,9 @@ public class RoomPanel extends JPanel {
             // 确保 available 不超过 total
             available = Math.max(0, Math.min(available, totalBeds));
 
-            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
+            RoomType typeEnum = RoomType.fromDescription(roomType);
+            RoomStatus statusEnum = RoomStatus.fromDescription(statusText);
+            Room room = new Room(roomNumber, building, typeEnum, totalBeds, occupied, available, monitor, phone, hygiene, statusEnum, remarks);
             boolean ok = roomService.add(room);
             if (ok) {
                 loadRoomsFromDB();
@@ -455,7 +483,9 @@ public class RoomPanel extends JPanel {
 
             available = Math.max(0, Math.min(available, totalBeds));
 
-            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
+            RoomType typeEnum = RoomType.fromDescription(roomType);
+            RoomStatus statusEnum = RoomStatus.fromDescription(statusText);
+            Room room = new Room(roomNumber, building, typeEnum, totalBeds, occupied, available, monitor, phone, hygiene, statusEnum, remarks);
             boolean ok = roomService.update(room);
             if (ok) {
                 loadRoomsFromDB();
