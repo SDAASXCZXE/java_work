@@ -4,7 +4,6 @@ import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.sql.*;
 import java.util.List;
 
 import model.Room;
@@ -281,9 +280,17 @@ public class RoomPanel extends JPanel {
 
         // 三者联动：totalBeds = occupied + available
         try {
-            JSpinner totalSpinner = (JSpinner) fields[3];     // 总床位
-            JSpinner occupiedSpinner = (JSpinner) fields[4]; // 已住人数
-            JSpinner availSpinner = (JSpinner) fields[5];    // 空床位
+            if (!(fields[3] instanceof JSpinner)
+                    || !(fields[4] instanceof JSpinner)
+                    || !(fields[5] instanceof JSpinner)) {
+                System.err.println("Spinner 初始化失败");
+                return;
+            }
+
+            JSpinner totalSpinner = (JSpinner) fields[3];
+            JSpinner occupiedSpinner = (JSpinner) fields[4];
+            JSpinner availSpinner = (JSpinner) fields[5];
+
 
             SpinnerNumberModel occModel = (SpinnerNumberModel) occupiedSpinner.getModel();
             SpinnerNumberModel availModel = (SpinnerNumberModel) availSpinner.getModel();
