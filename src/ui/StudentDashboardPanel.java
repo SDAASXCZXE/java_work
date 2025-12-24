@@ -5,6 +5,9 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.time.format.DateTimeFormatter;
+import java.time.DayOfWeek;
+import java.util.List;
 
 /**
  * 学生个人面板 - 学生登录后可见
@@ -23,6 +26,9 @@ public class StudentDashboardPanel extends JPanel {
     @SuppressWarnings("FieldMayBeFinal")
     private service.HolidayService holidayService = new service.impl.HolidayServiceImpl(); // 假期服务实例
 
+    // 新增：考勤服务，用于从数据库加载学生个人考勤
+    private service.AttendanceService attendanceService = new service.impl.AttendanceServiceImpl();
+
     public StudentDashboardPanel(String studentId, String studentName, String dormitory) {
         this.studentId = studentId;
         this.studentName = studentName;
@@ -30,6 +36,9 @@ public class StudentDashboardPanel extends JPanel {
 
         initUI();
         loadSampleData();
+
+        // 在 UI 创建后异步加载学生个人考勤（替换示例数据）
+        SwingUtilities.invokeLater(this::loadMyAttendanceFromDB);
     }
 
     private void initUI() {
@@ -48,7 +57,7 @@ public class StudentDashboardPanel extends JPanel {
         mainTabs.addTab("换宿/退宿申请", createTransferPanel());
         mainTabs.addTab("假期登记", createHolidayPanel());
         mainTabs.addTab("我的考勤", createMyAttendancePanel());
-        mainTabs.addTab("个人信息", createProfilePanel());
+       // mainTabs.addTab("个人信息", createProfilePanel());
 
         add(mainTabs, BorderLayout.CENTER);
 
@@ -304,12 +313,12 @@ public class StudentDashboardPanel extends JPanel {
     private JPanel createMyAttendancePanel() {
         JPanel panel = new JPanel(new BorderLayout());
 
-        // 考勤统计
+        // 考勤统计（保留占位，后续可以接入真实统计）
         JPanel statsPanel = new JPanel(new GridLayout(2, 3, 10, 10));
         statsPanel.setBorder(BorderFactory.createTitledBorder("考勤统计"));
 
         String[] statsLabels = {"本月正常", "本月晚归", "本月未归", "累计正常", "累计晚归", "累计未归"};
-        String[] statsValues = {"28天", "2次", "0次", "256天", "8次", "1次"};
+        String[] statsValues = {"0天", "0次", "0次", "0天", "0次", "0次"};
 
         for (int i = 0; i < statsLabels.length; i++) {
             JPanel statItem = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -323,9 +332,12 @@ public class StudentDashboardPanel extends JPanel {
 
         panel.add(statsPanel, BorderLayout.NORTH);
 
-        // 考勤记录表格
+        // 考勤记录表格（从数据库加载）
         String[] columns = {"日期", "星期", "归寝时间", "状态", "备注"};
-        attendanceTableModel = new DefaultTableModel(columns, 0);
+        attendanceTableModel = new DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
+        };
 
         attendanceTable = new JTable(attendanceTableModel);
         JScrollPane scrollPane = new JScrollPane(attendanceTable);
@@ -337,35 +349,28 @@ public class StudentDashboardPanel extends JPanel {
     }
 
     /**
-     * 创建个人信息面板
+     * 从数据库加载当前登录学生的考勤记录并填充表格
      */
-    private JPanel createProfilePanel() {
-        JPanel panel = new JPanel(new GridBagLayout());
+    private void loadMyAttendanceFromDB() {
+        try {
+            List<model.Attendance> records = attendanceService.listByStudent(this.studentId);
+            attendanceTableModel.setRowCount(0);
+            DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
+            for (model.Attendance a : records) {
+                String date = a.getAttendanceDate() == null ? "" : a.getAttendanceDate().toString();
+                DayOfWeek dow = a.getAttendanceDate() == null ? null : a.getAttendanceDate().getDayOfWeek();
+                String week = dow == null ? "" : "星期" + new String[]{"日","一","二","三","四","五","六"}[dow.getValue() % 7];
+                String time = a.getAttendanceTime() == null ? "" : a.getAttendanceTime().format(timeFmt);
+                String status = a.getStatus() == null ? "" : a.getStatus().getDescription();
+                String remarks = a.getRemarks().orElse("");
 
-        GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-
-        String[] labels = {"学号：", "姓名：", "性别：", "学院：", "专业：",
-                "班级：", "宿舍：", "床位：", "联系电话：", "入住日期："};
-
-        String[] values = {studentId, studentName, "男", "计算机学院", "软件工程",
-                "1班", dormitory, "1号床", "13800138001", "2023-09-01"};
-
-        for (int i = 0; i < labels.length; i++) {
-            gbc.gridx = 0;
-            gbc.gridy = i;
-            gbc.weightx = 0;
-            panel.add(new JLabel(labels[i]), gbc);
-
-            gbc.gridx = 1;
-            gbc.weightx = 1.0;
-            JTextField field = new JTextField(values[i]);
-            field.setEditable(false);
-            panel.add(field, gbc);
+                Object[] row = { date, week, time, status, remarks };
+                attendanceTableModel.addRow(row);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "加载我的考勤失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
         }
-
-        return panel;
     }
 
     /**
@@ -758,18 +763,7 @@ public class StudentDashboardPanel extends JPanel {
             repairTableModel.addRow(row);
         }
 
-        // 加载考勤示例数据
-        Object[][] attendanceData = {
-                {"2024-01-15", "星期一", "22:15", "正常", ""},
-                {"2024-01-14", "星期日", "23:45", "晚归", "校外活动"},
-                {"2024-01-13", "星期六", "22:30", "正常", ""},
-                {"2024-01-12", "星期五", "22:00", "正常", ""},
-                {"2024-01-11", "星期四", "21:45", "正常", ""}
-        };
-
-        for (Object[] row : attendanceData) {
-            attendanceTableModel.addRow(row);
-        }
+        // 不再加载考勤示例数据，改为从数据库加载真实数据
     }
 }
 

@@ -26,6 +26,11 @@ public class AttendanceServiceImpl implements AttendanceService {
     }
 
     @Override
+    public List<Attendance> listByStudent(String studentId) {
+        return dao.findByStudent(studentId);
+    }
+
+    @Override
     public boolean add(Attendance attendance) {
         return dao.insert(attendance);
     }
@@ -35,4 +40,3 @@ public class AttendanceServiceImpl implements AttendanceService {
         return dao.deleteById(id);
     }
 }
-

@@ -29,8 +29,10 @@ public class AttendanceDaoImpl implements AttendanceDao {
                 String studentId = rs.getString("student_id");
                 String roomNumber = rs.getString("room_number");
                 String building = rs.getString("building");
-                LocalDate date = rs.getDate("attendance_date").toLocalDate();
-                LocalTime time = rs.getTime("attendance_time").toLocalTime();
+                java.sql.Date sqlDate = rs.getDate("attendance_date");
+                LocalDate date = sqlDate == null ? LocalDate.now() : sqlDate.toLocalDate();
+                java.sql.Time sqlTime = rs.getTime("attendance_time");
+                LocalTime time = sqlTime == null ? LocalTime.MIDNIGHT : sqlTime.toLocalTime();
                 String direction = rs.getString("direction");
                 String status = rs.getString("status");
 
@@ -64,8 +66,10 @@ public class AttendanceDaoImpl implements AttendanceDao {
                     String studentId = rs.getString("student_id");
                     String roomNumber = rs.getString("room_number");
                     String building = rs.getString("building");
-                    LocalDate d = rs.getDate("attendance_date").toLocalDate();
-                    LocalTime time = rs.getTime("attendance_time").toLocalTime();
+                    java.sql.Date sqlDate = rs.getDate("attendance_date");
+                    LocalDate d = sqlDate == null ? date : sqlDate.toLocalDate();
+                    java.sql.Time sqlTime = rs.getTime("attendance_time");
+                    LocalTime time = sqlTime == null ? LocalTime.MIDNIGHT : sqlTime.toLocalTime();
                     String direction = rs.getString("direction");
                     String status = rs.getString("status");
 
@@ -77,6 +81,43 @@ public class AttendanceDaoImpl implements AttendanceDao {
                     else if ("overdue".equalsIgnoreCase(status)) st = Attendance.AttendanceStatus.OVERDUE;
 
                     Attendance a = new Attendance(id, studentId, roomNumber, building, d, time, dir, st);
+                    list.add(a);
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return list;
+    }
+
+    @Override
+    public List<Attendance> findByStudent(String studentId) {
+        List<Attendance> list = new ArrayList<>();
+        String sql = "SELECT * FROM attendance WHERE deleted = 0 AND student_id = ? ORDER BY attendance_date DESC, create_time DESC";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, studentId);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String id = rs.getString("id");
+                    String sid = rs.getString("student_id");
+                    String roomNumber = rs.getString("room_number");
+                    String building = rs.getString("building");
+                    java.sql.Date sqlDate = rs.getDate("attendance_date");
+                    LocalDate d = sqlDate == null ? LocalDate.now() : sqlDate.toLocalDate();
+                    java.sql.Time sqlTime = rs.getTime("attendance_time");
+                    LocalTime time = sqlTime == null ? LocalTime.MIDNIGHT : sqlTime.toLocalTime();
+                    String direction = rs.getString("direction");
+                    String status = rs.getString("status");
+
+                    Attendance.AttendanceDirection dir = "in".equalsIgnoreCase(direction) ? Attendance.AttendanceDirection.IN : Attendance.AttendanceDirection.OUT;
+                    Attendance.AttendanceStatus st = Attendance.AttendanceStatus.NORMAL;
+                    if ("late".equalsIgnoreCase(status)) st = Attendance.AttendanceStatus.LATE;
+                    else if ("absent".equalsIgnoreCase(status)) st = Attendance.AttendanceStatus.ABSENT;
+                    else if ("leave".equalsIgnoreCase(status)) st = Attendance.AttendanceStatus.LEAVE;
+                    else if ("overdue".equalsIgnoreCase(status)) st = Attendance.AttendanceStatus.OVERDUE;
+
+                    Attendance a = new Attendance(id, sid, roomNumber, building, d, time, dir, st);
                     list.add(a);
                 }
             }

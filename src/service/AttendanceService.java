@@ -14,10 +14,12 @@ public interface AttendanceService {
     /** 按日期列出考勤记录 */
     List<Attendance> listByDate(LocalDate date);
 
+    /** 按学号列出个人考勤记录 */
+    List<Attendance> listByStudent(String studentId);
+
     /** 新增一条考勤记录 */
     boolean add(Attendance attendance);
 
     /** 根据 id 逻辑删除一条记录 */
     boolean removeById(String id);
 }
-
