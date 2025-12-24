@@ -20,6 +20,9 @@ public class StudentDashboardPanel extends JPanel {
     private String studentName;
     private String dormitory;
 
+    @SuppressWarnings("FieldMayBeFinal")
+    private service.HolidayService holidayService = new service.impl.HolidayServiceImpl(); // 假期服务实例
+
     public StudentDashboardPanel(String studentId, String studentName, String dormitory) {
         this.studentId = studentId;
         this.studentName = studentName;
@@ -581,7 +584,7 @@ public class StudentDashboardPanel extends JPanel {
     }
 
     /**
-     * 提交假期登记
+     * 提交假期登记（现在将调用 HolidayService 将数据写入数据库）
      */
     private void submitHolidayRegistration(JComboBox<String> typeCombo, JTextField leaveField,
                                            JTextField returnField, JTextField destinationField,
@@ -608,12 +611,29 @@ public class StudentDashboardPanel extends JPanel {
             return;
         }
 
-        String message = String.format("登记类型：%s\n离校时间：%s\n返校时间：%s\n目的地：%s\n紧急联系人：%s\n联系电话：%s\n\n确认提交登记？",
-                type, leaveDate, returnDate, destination, contact, phone);
+        // 解析日期，允许用户输入 yyyy-MM-dd 格式
+        java.time.LocalDate leaveLocal = null;
+        java.time.LocalDate returnLocal = null;
+        try {
+            leaveLocal = java.time.LocalDate.parse(leaveDate);
+            if (!returnDate.isEmpty()) returnLocal = java.time.LocalDate.parse(returnDate);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "日期格式错误，请使用 yyyy-MM-dd 格式", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        int confirm = JOptionPane.showConfirmDialog(this, message, "确认提交", JOptionPane.YES_NO_OPTION);
-        if (confirm == JOptionPane.YES_OPTION) {
-            JOptionPane.showMessageDialog(this, "假期登记已提交！", "成功", JOptionPane.INFORMATION_MESSAGE);
+        // 生成 ID 并构造 Holiday 对象
+        String id = model.Holiday.generateId();
+        model.Holiday.HolidayType htype = "返校登记".equals(type) ? model.Holiday.HolidayType.BACK : model.Holiday.HolidayType.LEAVE;
+        model.Holiday holiday = new model.Holiday(id, this.studentId, this.dormitory, "", htype, leaveLocal, returnLocal);
+        // 补充其它可选字段
+        if (!destination.isEmpty()) holiday.setDestination(destination);
+        if (!contact.isEmpty()) holiday.setContactPerson(contact);
+        if (!phone.isEmpty()) holiday.setContactPhone(phone);
+
+        boolean ok = holidayService.add(holiday);
+        if (ok) {
+            JOptionPane.showMessageDialog(this, "假期登记已提交并保存到数据库！", "成功", JOptionPane.INFORMATION_MESSAGE);
 
             // 清空表单
             leaveField.setText("");
@@ -621,24 +641,39 @@ public class StudentDashboardPanel extends JPanel {
             destinationField.setText("");
             contactField.setText("");
             phoneField.setText("");
+        } else {
+            JOptionPane.showMessageDialog(this, "保存假期登记时发生错误，请检查数据库连接或日志。", "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 
     /**
-     * 查看假期记录
+     * 查看假期记录（从数据库读取）
      */
     private void viewHolidayRecords() {
+        java.util.List<model.Holiday> records = holidayService.listByStudent(this.studentId);
+
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "假期登记记录", true);
-        dialog.setSize(600, 400);
+        dialog.setSize(800, 400);
         dialog.setLocationRelativeTo(this);
 
         String[] columns = {"登记时间", "登记类型", "离校时间", "返校时间", "目的地", "状态"};
-        Object[][] data = {
-                {"2024-01-15 08:30", "离校登记", "2024-01-15", "2024-02-25", "上海", "已返校"},
-                {"2023-12-30 14:20", "离校登记", "2023-12-30", "2024-01-05", "北京", "已返校"}
+        javax.swing.table.DefaultTableModel tableModel = new javax.swing.table.DefaultTableModel(columns, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) { return false; }
         };
 
-        JTable table = new JTable(data, columns);
+        for (model.Holiday h : records) {
+            String regTime = h.getRegisterTime() == null ? "" : h.getRegisterTime().toString();
+            String typeStr = h.getHolidayType().getDescription();
+            String leave = h.getLeaveDate() == null ? "" : h.getLeaveDate().toString();
+            String planned = h.getPlannedBackDate() == null ? "" : h.getPlannedBackDate().toString();
+            String dest = h.getDestination().orElse("");
+            String status = h.getStatus().getDescription();
+            Object[] row = { regTime, typeStr, leave, planned, dest, status };
+            tableModel.addRow(row);
+        }
+
+        JTable table = new JTable(tableModel);
         JScrollPane scrollPane = new JScrollPane(table);
 
         dialog.add(scrollPane);
@@ -737,3 +772,4 @@ public class StudentDashboardPanel extends JPanel {
         }
     }
 }
+
