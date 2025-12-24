@@ -37,7 +37,8 @@ public class StudentDaoImpl implements StudentDao {
                 s.setGrade(rs.getString("grade"));
                 s.setClazz(rs.getString("class"));
                 s.setPhone(rs.getString("phone"));
-                s.setInDate(rs.getDate("in_date").toLocalDate());
+                java.sql.Date inDate = rs.getDate("in_date");
+                if (inDate != null) s.setInDate(inDate.toLocalDate());
                 list.add(s);
             }
         } catch (Exception e) {
@@ -48,13 +49,17 @@ public class StudentDaoImpl implements StudentDao {
 
     // 添加学生
     @Override
-    public void addStudent(Student s) throws Exception {
+    public boolean addStudent(Student s) {
         String sql = "INSERT INTO student " +
                 "(sno, name, gender, college, major, grade, class, phone, in_date) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        Connection conn = null;
+        PreparedStatement ps = null;
+        try {
+            conn = DBUtil.getConnection();
+            if (conn == null) return false;
+            ps = conn.prepareStatement(sql);
             ps.setString(1, s.getSno());
             ps.setString(2, s.getName());
             ps.setString(3, s.getGender());
@@ -63,28 +68,46 @@ public class StudentDaoImpl implements StudentDao {
             ps.setString(6, s.getGrade());
             ps.setString(7, s.getClazz());
             ps.setString(8, s.getPhone());
-            ps.setDate(9, java.sql.Date.valueOf(s.getInDate()));
+            if (s.getInDate() != null) ps.setDate(9, java.sql.Date.valueOf(s.getInDate()));
+            else ps.setDate(9, java.sql.Date.valueOf(java.time.LocalDate.now()));
 
-            ps.executeUpdate();
+            int c = ps.executeUpdate();
+            return c > 0;
+        } catch (SQLException ex) {
+            // 如果是约束违规（例如学号唯一冲突），SQLState 通常以 '23' 开头
+            String sqlState = ex.getSQLState();
+            if (sqlState != null && sqlState.startsWith("23")) {
+                // 违反约束（重复键/唯一索引），静默处理返回 false
+                return false;
+            }
+            // 其它 SQL 错误，打印堆栈以便调试
+            ex.printStackTrace();
+            return false;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        } finally {
+            try { if (ps != null) ps.close(); } catch (Exception ignored) {}
+            DBUtil.close(conn);
         }
     }
 
     // 根据 id 删除学生
     @Override
-    public void deleteStudent(String sno) {
+    public boolean deleteStudent(String sno) {
         String sql = "DELETE FROM student WHERE sno = ?";
 
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
+            if (conn == null) return false;
             pstmt.setString(1, sno);
             int rows = pstmt.executeUpdate();
 
-            if (rows == 0) {
-                throw new RuntimeException("未找到学号为 " + sno + " 的学生");
-            }
+            return rows > 0;
         } catch (SQLException e) {
-            throw new RuntimeException("删除学生失败: " + e.getMessage(), e);
+            e.printStackTrace();
+            return false;
         }
     }
 

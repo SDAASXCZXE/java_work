@@ -5,7 +5,7 @@ import java.util.List;
 
 public interface StudentService {
     List<Student> listStudents();
-    void addStudent(Student student);
-    void deleteStudent(String id);
+    boolean addStudent(Student student);
+    boolean deleteStudent(String id);
     boolean existsBySno(String sno);
 }

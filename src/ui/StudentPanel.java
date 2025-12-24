@@ -155,45 +155,43 @@ public class StudentPanel extends JPanel {
     }
 
     /**
-     * 从数据库中加载 表示显示功能
+     * 从数据库中加载 表示显示功能（通过 Service 层，保持与 Room/Attendance 一致）
      */
     private void loadStudentsFromDB() {
         tableModel.setRowCount(0);
-
-        Connection conn = null;
-        Statement stmt = null;
-        ResultSet rs = null;
-
         try {
-            conn = DBUtil.getConnection();
-            stmt = conn.createStatement();
-            rs = stmt.executeQuery("SELECT * FROM student");
+            service.StudentService studentService = new service.impl.StudentServiceImpl();
+            java.util.List<Student> students = studentService.listStudents();
+            for (Student s : students) {
+                Object dorm = "";
+                if (s.getBuilding() != null && s.getRoomNumber() != null) {
+                    dorm = s.getBuilding() + s.getRoomNumber();
+                } else if (s.getRoomNumber() != null) {
+                    dorm = s.getRoomNumber();
+                }
+                Object bed = s.getBedNumber() <= 0 ? "" : String.valueOf(s.getBedNumber());
+                Object inDate = s.getInDate() == null ? "" : java.sql.Date.valueOf(s.getInDate());
 
-            while (rs.next()) {
                 Object[] row = {
-                        rs.getString("sno"),
-                        rs.getString("name"),
-                        rs.getString("gender"),
-                        rs.getString("college"),
-                        rs.getString("major"),
-                        rs.getString("grade"),
-                        rs.getString("class"),
-                        rs.getString("dorm_no"),
-                        rs.getString("bed_no"),
-                        rs.getString("phone"),
-                        rs.getDate("in_date")
+                        s.getSno(),
+                        s.getName(),
+                        s.getGender(),
+                        s.getCollege(),
+                        s.getMajor(),
+                        s.getGrade(),
+                        s.getClazz(),
+                        dorm,
+                        bed,
+                        s.getPhone(),
+                        inDate
                 };
                 tableModel.addRow(row);
             }
 
             updateStudentCount();
-
         } catch (Exception e) {
             e.printStackTrace();
-        } finally {
-            try { if (rs != null) rs.close(); } catch (Exception ignored) {}
-            try { if (stmt != null) stmt.close(); } catch (Exception ignored) {}
-            DBUtil.close(conn);
+            JOptionPane.showMessageDialog(this, "加载学生数据失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -283,10 +281,16 @@ public class StudentPanel extends JPanel {
                     return;
                 }
 
-                studentService.addStudent(student);
-                JOptionPane.showMessageDialog(dialog, "学生添加成功！");
-                dialog.dispose(); // 关闭对话框
-                loadStudentsFromDB(); // 刷新表格数据
+                boolean added = studentService.addStudent(student);
+                if (added) {
+                    JOptionPane.showMessageDialog(dialog, "学生添加成功！");
+                    dialog.dispose(); // 关闭对话框
+                    loadStudentsFromDB(); // 刷新表格数据
+                    // 通知其它组件（若需要）
+                    util.RefreshCenter.notify("students-updated");
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "学生保存到数据库失败，请检查数据库或日志。", "错误", JOptionPane.ERROR_MESSAGE);
+                }
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(dialog, "添加学生失败: " + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             }
@@ -337,15 +341,18 @@ public class StudentPanel extends JPanel {
             try {
                 // 5. 调用 Service，真正删除数据库数据
                 StudentService studentService = new StudentServiceImpl();
-                studentService.deleteStudent(studentSno);
-
-                // 6. 重新加载数据库数据到 JTable
-                loadStudentsFromDB();
-
-                // 7. 更新学生数量
-                updateStudentCount();
-
-                JOptionPane.showMessageDialog(this, "删除成功！");
+                boolean deleted = studentService.deleteStudent(studentSno);
+                if (deleted) {
+                    // 6. 重新加载数据库数据到 JTable
+                    loadStudentsFromDB();
+                    // 7. 更新学生数量
+                    updateStudentCount();
+                    // 通知其它组件
+                    util.RefreshCenter.notify("students-updated");
+                    JOptionPane.showMessageDialog(this, "删除成功！");
+                } else {
+                    JOptionPane.showMessageDialog(this, "删除学生失败，请检查数据库或日志。", "错误", JOptionPane.ERROR_MESSAGE);
+                }
             } catch (Exception e) {
                 e.printStackTrace();  // 调试用
                 JOptionPane.showMessageDialog(

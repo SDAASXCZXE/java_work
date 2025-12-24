@@ -9,7 +9,7 @@ import java.util.List;
 
 public class StudentServiceImpl implements StudentService {
 
-    private StudentDao studentDao = new StudentDaoImpl(); // 实例化 DAO
+    private final StudentDao studentDao = new StudentDaoImpl(); // 实例化 DAO
 
     // 获取所有学生
     @Override
@@ -18,23 +18,23 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
-    public void addStudent(Student student) {
+    public boolean addStudent(Student student) {
         try {
-            studentDao.addStudent(student);  // 调用 DAO 的添加方法
+            return studentDao.addStudent(student);
         } catch (Exception e) {
-            // 打印异常堆栈信息，帮助调试
             e.printStackTrace();
-            throw new RuntimeException("添加学生失败, 错误信息: " + e.getMessage(), e);
+            return false;
         }
     }
 
     // 删除学生
     @Override
-    public void deleteStudent(String sno) {
+    public boolean deleteStudent(String sno) {
         try {
-            studentDao.deleteStudent(sno);
+            return studentDao.deleteStudent(sno);
         } catch (Exception e) {
-            throw new RuntimeException("删除学生失败: " + e.getMessage());
+            e.printStackTrace();
+            return false;
         }
     }
 
