@@ -428,20 +428,20 @@ public class StudentPanel extends JPanel {
      * 编辑学生
      */
     private void editStudent() {
-        int selectedRow = studentTable.getSelectedRow();
-        if (selectedRow == -1) {
-            JOptionPane.showMessageDialog(this, "请先选择要编辑的学生！", "提示", JOptionPane.WARNING_MESSAGE);
-            return;
-        }
+        final int selectedRow = studentTable.getSelectedRow();
+         if (selectedRow == -1) {
+             JOptionPane.showMessageDialog(this, "请先选择要编辑的学生！", "提示", JOptionPane.WARNING_MESSAGE);
+             return;
+         }
 
-        // 获取选中的学生信息
-        String studentId = tableModel.getValueAt(selectedRow, 0).toString();
-        String name = tableModel.getValueAt(selectedRow, 1).toString();
+         // 获取选中的学生信息
+         final String studentId = tableModel.getValueAt(selectedRow, 0).toString();
+         final String name = tableModel.getValueAt(selectedRow, 1).toString();
 
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "编辑学生信息", true);
-        dialog.setLayout(new BorderLayout());
-        dialog.setSize(400, 500);
-        dialog.setLocationRelativeTo(this);
+         final JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "编辑学生信息", true);
+         dialog.setLayout(new BorderLayout());
+         dialog.setSize(400, 500);
+         dialog.setLocationRelativeTo(this);
 
         JPanel formPanel = new JPanel(new GridLayout(10, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -490,103 +490,299 @@ public class StudentPanel extends JPanel {
             formPanel.add((Component) fields[i]);
         }
 
+        // 添加一个状态标签，显示宿舍是否存在与可分配床位信息
+        JLabel roomStatusLabel = new JLabel("");
+        roomStatusLabel.setForeground(new Color(80, 120, 160));
+
+        // 将状态标签放入底部按钮左侧：改为一个容器放置状态与按钮
         dialog.add(formPanel, BorderLayout.CENTER);
 
+        // 创建按钮面板（稍后和状态行一起加入南部）
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
         JButton saveButton = new JButton("保存");
         JButton cancelButton = new JButton("取消");
 
-        saveButton.addActionListener(e -> {
-            // 构建 Student 对象并提交到数据库（通过 Service）
+        // 绑定实时检测逻辑：当用户更改楼栋或房间号时，检测宿舍是否存在
+        final model.Room[] previewRoom = new model.Room[1];
+        previewRoom[0] = null;
+
+        // 获取楼栋组件与房间号文本框（fields[8] 与 fields[9]）
+        final JComponent buildingComp = fields[8];
+        final JTextField roomField = (JTextField) fields[9];
+
+        Runnable checkRoomExist = () -> {
             try {
+                String b = "";
+                if (buildingComp instanceof JComboBox) {
+                    Object sel = ((JComboBox<?>) buildingComp).getSelectedItem();
+                    b = sel == null ? "" : sel.toString();
+                } else if (buildingComp instanceof JTextField) {
+                    b = ((JTextField) buildingComp).getText().trim();
+                }
+                if (!b.endsWith("栋") && b.length() == 1) b = b + "栋";
+                String rn = roomField.getText().trim();
+                if (rn.isEmpty()) {
+                    previewRoom[0] = null;
+                    SwingUtilities.invokeLater(() -> roomStatusLabel.setText(""));
+                    return;
+                }
+
+                service.RoomService rs = new service.impl.RoomServiceImpl();
+                model.Room found = null;
+                for (model.Room r : rs.findAll()) {
+                    String rb = r.getBuilding() == null ? "" : r.getBuilding();
+                    String rr = r.getRoomNumber() == null ? "" : r.getRoomNumber();
+                    if (rb.equals(b) && rr.equals(rn)) {
+                        found = r;
+                        break;
+                    }
+                }
+                if (found != null) {
+                    previewRoom[0] = found;
+                    if (found.getAvailableBeds() <= 0) {
+                        SwingUtilities.invokeLater(() -> roomStatusLabel.setText("该宿舍已满！"));
+                    } else {
+                        final int availBeds = found.getAvailableBeds();
+                        SwingUtilities.invokeLater(() -> roomStatusLabel.setText("宿舍存在，空余床位: " + availBeds));
+                    }
+                } else {
+                    previewRoom[0] = null;
+                    SwingUtilities.invokeLater(() -> roomStatusLabel.setText("宿舍不存在"));
+                }
+            } catch (Exception ex) {
+                previewRoom[0] = null;
+                SwingUtilities.invokeLater(() -> roomStatusLabel.setText("检查宿舍时发生错误"));
+            }
+        };
+
+        // 给 roomField 添加文档监听（实时响应输入）
+        roomField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
+            @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
+            @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
+        });
+
+        // 给楼栋下拉添加监听
+        if (buildingComp instanceof JComboBox) {
+            ((JComboBox<?>) buildingComp).addActionListener(ae -> checkRoomExist.run());
+        } else if (buildingComp instanceof JTextField) {
+            ((JTextField) buildingComp).getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
+                @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
+                @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
+            });
+        }
+
+        // 将按钮和状态标签放到南部容器
+        JPanel southPanel = new JPanel(new BorderLayout());
+        southPanel.add(roomStatusLabel, BorderLayout.WEST);
+        buttonPanel.add(saveButton);
+        buttonPanel.add(cancelButton);
+        southPanel.add(buttonPanel, BorderLayout.EAST);
+        dialog.add(southPanel, BorderLayout.SOUTH);
+
+        // 保存按钮的逻辑
+        saveButton.addActionListener(e -> {
+            try {
+                // 1. 构建要更新的学生对象（从表单读取值）
                 model.Student updated = new model.Student();
-                // 学号不可编辑，但从字段或表格中读取
+
+                // 学号
                 String sno = ((JTextField) fields[0]).getText().trim();
                 updated.setSno(sno);
+
+                // 基本信息
                 updated.setName(((JTextField) fields[1]).getText().trim());
 
-
-                // 性别可能为 JComboBox
-                String gender = "";
+                // 性别
                 if (fields[2] instanceof JComboBox) {
                     Object sel = ((JComboBox<?>) fields[2]).getSelectedItem();
-                    gender = sel == null ? "" : sel.toString();
+                    updated.setGender(sel == null ? "" : sel.toString());
                 } else {
-                    gender = ((JTextField) fields[2]).getText().trim();
+                    updated.setGender(((JTextField) fields[2]).getText().trim());
                 }
-                updated.setGender(gender);
 
+                // 学院专业等信息
                 updated.setCollege(((JTextField) fields[3]).getText().trim());
                 updated.setMajor(((JTextField) fields[4]).getText().trim());
                 updated.setGrade(((JTextField) fields[5]).getText().trim());
                 updated.setClazz(((JTextField) fields[6]).getText().trim());
                 updated.setPhone(((JTextField) fields[7]).getText().trim());
 
-                // 宿舍楼与房间号
-                String building = "";
-                if (fields[8] instanceof JComboBox) {
-                    Object sel = ((JComboBox<?>) fields[8]).getSelectedItem();
-                    building = sel == null ? "" : sel.toString().replace("栋", "");
-                } else {
-                    building = ((JTextField) fields[8]).getText().trim().replace("栋", "");
+                // 获取宿舍楼和房间号
+                String b = "";
+                if (buildingComp instanceof JComboBox) {
+                    Object sel = ((JComboBox<?>) buildingComp).getSelectedItem();
+                    b = sel == null ? "" : sel.toString();
+                } else if (buildingComp instanceof JTextField) {
+                    b = ((JTextField) buildingComp).getText().trim();
                 }
-                String room = ((JTextField) fields[9]).getText().trim();
-                updated.setBuilding(building);
-                updated.setRoomNumber(room);
+                if (!b.endsWith("栋") && b.length() == 1) b = b + "栋";
+                String rn = roomField.getText().trim();
 
-                // 床位号：从表格读原值（第8列），保留原样或解析数字
-                Object bedObj = tableModel.getValueAt(selectedRow, 8);
-                int bedNum = 0;
-                if (bedObj != null) {
-                    String bstr = bedObj.toString().replaceAll("[^0-9]", "").trim();
-                    if (!bstr.isEmpty()) {
-                        try { bedNum = Integer.parseInt(bstr); } catch (Exception ignored) {}
+                // 设置宿舍信息（如果数据库表有这些字段的话）
+                // 注意：如果你的student表没有building和room_number字段，这些调用会失败！
+                // 你需要根据实际数据库表结构来决定是否设置这些字段
+
+                // 先注释掉可能不存在的字段，或者根据实际情况决定
+                // try { updated.setBuilding(b); } catch (Exception ignored) {}
+                // try { updated.setRoomNumber(rn); } catch (Exception ignored) {}
+
+                // 入住日期
+                try {
+                    Object inDateObj = tableModel.getValueAt(selectedRow, 10);
+                    if (inDateObj instanceof java.sql.Date) {
+                        updated.setInDate(((java.sql.Date) inDateObj).toLocalDate());
                     }
-                }
-                updated.setBedNumber(bedNum);
+                } catch (Exception ignored) {}
 
-                // 保持原入住日期（如果表格有值则使用）
-                Object inDateObj = tableModel.getValueAt(selectedRow, 10);
-                if (inDateObj != null && !inDateObj.toString().isEmpty()) {
-                    try {
-                        if (inDateObj instanceof java.sql.Date) {
-                            java.sql.Date d = (java.sql.Date) inDateObj;
-                            updated.setInDate(d.toLocalDate());
-                        } else {
-                            // 尝试解析 yyyy-MM-dd
-                            String s = inDateObj.toString().trim();
-                            try {
-                                updated.setInDate(java.time.LocalDate.parse(s));
-                            } catch (Exception ignored) { }
+                // 2. 处理宿舍分配逻辑
+                service.RoomService roomService = new service.impl.RoomServiceImpl();
+
+                // 获取原始宿舍信息（如果有的话）
+                String originalDorm = tableModel.getValueAt(selectedRow, 7).toString();
+                String originalBuilding = "";
+                String originalRoomNumber = "";
+
+                if (!originalDorm.isEmpty() && originalDorm.length() > 1) {
+                    originalBuilding = originalDorm.substring(0, 1) + "栋";
+                    originalRoomNumber = originalDorm.substring(1);
+                }
+
+                // 新宿舍信息
+                String newBuilding = b;
+                String newRoomNumber = rn;
+
+                // 情况1: 没有选择宿舍（清空宿舍分配）
+                if (newRoomNumber.isEmpty()) {
+                    // 如果原来有宿舍，需要从原宿舍迁出
+                    if (!originalRoomNumber.isEmpty()) {
+                        model.Room originalRoom = null;
+                        for (model.Room r : roomService.findAll()) {
+                            if (r.getRoomNumber().equals(originalRoomNumber) &&
+                                    r.getBuilding().equals(originalBuilding)) {
+                                originalRoom = r;
+                                break;
+                            }
                         }
-                    } catch (Exception ex) {
-                        // 忽略解析错误，保留 null
+
+                        if (originalRoom != null) {
+                            // 从原宿舍退宿
+                            int newOccupied = originalRoom.getOccupied() - 1;
+                            int newAvailable = originalRoom.getAvailableBeds() + 1;
+                            newOccupied = Math.max(0, newOccupied);
+                            newAvailable = Math.min(originalRoom.getTotalBeds(), newAvailable);
+
+                            String status = newOccupied >= originalRoom.getTotalBeds() ?
+                                    model.Room.RoomStatus.FULL.name() : model.Room.RoomStatus.AVAILABLE.name();
+
+                            roomService.updateOccupancy(originalRoomNumber, newOccupied, newAvailable, status);
+                        }
+                    }
+
+                    // 更新学生信息（清空床位号）
+                    updated.setBedNumber(0);
+                }
+                // 情况2: 选择了新宿舍
+                else if (!newRoomNumber.isEmpty()) {
+                    // 检查宿舍是否存在
+                    model.Room targetRoom = null;
+                    for (model.Room r : roomService.findAll()) {
+                        if (r.getRoomNumber().equals(newRoomNumber) &&
+                                r.getBuilding().equals(newBuilding)) {
+                            targetRoom = r;
+                            break;
+                        }
+                    }
+
+                    if (targetRoom == null) {
+                        JOptionPane.showMessageDialog(dialog,
+                                "宿舍 " + newBuilding + newRoomNumber + " 不存在！",
+                                "错误", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    if (targetRoom.getAvailableBeds() <= 0) {
+                        JOptionPane.showMessageDialog(dialog,
+                                "宿舍 " + newBuilding + newRoomNumber + " 已满！",
+                                "错误", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    // 分配床位
+                    int nextBed = targetRoom.getOccupied() + 1;
+                    if (nextBed > targetRoom.getTotalBeds()) {
+                        JOptionPane.showMessageDialog(dialog,
+                                "宿舍 " + newBuilding + newRoomNumber + " 床位已满！",
+                                "错误", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    updated.setBedNumber(nextBed);
+
+                    // 如果换宿舍了，需要从原宿舍迁出
+                    boolean isSameRoom = originalBuilding.equals(newBuilding) &&
+                            originalRoomNumber.equals(newRoomNumber);
+
+                    if (!isSameRoom && !originalRoomNumber.isEmpty()) {
+                        // 从原宿舍退宿
+                        model.Room originalRoom = null;
+                        for (model.Room r : roomService.findAll()) {
+                            if (r.getRoomNumber().equals(originalRoomNumber) &&
+                                    r.getBuilding().equals(originalBuilding)) {
+                                originalRoom = r;
+                                break;
+                            }
+                        }
+
+                        if (originalRoom != null) {
+                            int newOccupied = originalRoom.getOccupied() - 1;
+                            int newAvailable = originalRoom.getAvailableBeds() + 1;
+                            newOccupied = Math.max(0, newOccupied);
+                            newAvailable = Math.min(originalRoom.getTotalBeds(), newAvailable);
+
+                            String status = newOccupied >= originalRoom.getTotalBeds() ?
+                                    model.Room.RoomStatus.FULL.name() : model.Room.RoomStatus.AVAILABLE.name();
+
+                            roomService.updateOccupancy(originalRoomNumber, newOccupied, newAvailable, status);
+                        }
+                    }
+
+                    // 入住新宿舍（如果换了宿舍或者第一次分配）
+                    if (!isSameRoom) {
+                        int newOccupied = targetRoom.getOccupied() + 1;
+                        int newAvailable = targetRoom.getAvailableBeds() - 1;
+                        newAvailable = Math.max(0, newAvailable);
+
+                        String status = newAvailable <= 0 ?
+                                model.Room.RoomStatus.FULL.name() : model.Room.RoomStatus.AVAILABLE.name();
+
+                        roomService.updateOccupancy(newRoomNumber, newOccupied, newAvailable, status);
                     }
                 }
 
-                // 调用服务层更新
+                // 3. 保存学生信息
                 service.StudentService studentService = new service.impl.StudentServiceImpl();
-                boolean ok = studentService.updateStudent(updated);
-                if (ok) {
+                boolean studentOk = studentService.updateStudent(updated);
+
+                if (studentOk) {
                     JOptionPane.showMessageDialog(dialog, "学生信息修改成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
                     dialog.dispose();
                     loadStudentsFromDB();
                     updateStudentCount();
                     util.RefreshCenter.notify("students-updated");
                 } else {
-                    JOptionPane.showMessageDialog(dialog, "更新学生信息失败，请检查数据库或日志。", "错误", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(dialog, "保存学生信息失败！", "错误", JOptionPane.ERROR_MESSAGE);
                 }
+
             } catch (Exception ex) {
                 ex.printStackTrace();
-                JOptionPane.showMessageDialog(dialog, "保存学生信息时发生错误：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog,
+                        "保存学生信息时发生错误：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
             }
-         });
+        });
 
         cancelButton.addActionListener(e -> dialog.dispose());
-
-        buttonPanel.add(saveButton);
-        buttonPanel.add(cancelButton);
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
 
