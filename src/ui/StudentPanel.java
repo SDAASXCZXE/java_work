@@ -6,6 +6,7 @@ import service.*;
 import model.Student;
 import service.impl.StudentServiceImpl;
 import util.DBUtil;
+import util.RefreshCenter;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -28,6 +29,9 @@ public class StudentPanel extends JPanel {
     public StudentPanel() {
         initUI();
         loadStudentsFromDB();
+
+        // 注册刷新监听器，当注册对话框或其它地方通知 students-updated 时，刷新表格
+        RefreshCenter.register("students-updated", this::loadStudentsFromDB);
     }
 
     private void initUI() {

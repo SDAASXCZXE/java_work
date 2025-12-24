@@ -4,6 +4,11 @@ import uimodel.UserType;
 import uimodel.UserManager;
 import javax.swing.*;
 import java.awt.*;
+import service.StudentService;
+import service.impl.StudentServiceImpl;
+import model.Student;
+import java.time.LocalDate;
+import util.RefreshCenter;
 
 /**
  * 用户注册对话框
@@ -191,6 +196,34 @@ public class RegisterDialog extends JDialog {
                 studentId, name, phone, email);
 
         if (success) {
+            // 如果是学生用户，尝试把学生信息写入数据库 Student 表，便于管理员页面直接看到新注册学生
+            if (userType == UserType.STUDENT) {
+                StudentService studentService = new StudentServiceImpl();
+                try {
+                    // 如果学生表中不存在该学号，则插入；如果已存在则忽略（避免重复）
+                    if (!studentService.existsBySno(studentId)) {
+                        Student s = new Student();
+                        s.setSno(studentId);
+                        s.setName(name.isEmpty() ? username : name);
+                        s.setPhone(phone);
+                        s.setInDate(LocalDate.now());
+                        // 其他字段保持默认或空，管理员可以后续编辑
+                        studentService.addStudent(s);
+                    }
+                    // 通知管理面板刷新学生列表
+                    RefreshCenter.notify("students-updated");
+                } catch (Exception ex) {
+                    // 不阻止注册成功，但提示管理员信息添加失败
+                    JOptionPane.showMessageDialog(this,
+                            "注册成功，但将学生信息保存到数据库时发生错误：" + ex.getMessage(),
+                            "部分成功", JOptionPane.WARNING_MESSAGE);
+                    registered = true;
+                    dispose();
+                    return;
+                }
+            }
+
+
             JOptionPane.showMessageDialog(this, "注册成功！\n用户名: " + username +
                             "\n用户类型: " + userType.getDescription(),
                     "注册成功", JOptionPane.INFORMATION_MESSAGE);
