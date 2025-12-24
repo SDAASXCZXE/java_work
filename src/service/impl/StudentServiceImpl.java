@@ -39,6 +39,16 @@ public class StudentServiceImpl implements StudentService {
     }
 
     @Override
+    public boolean updateStudent(Student student) {
+        try {
+            return studentDao.updateStudent(student);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    @Override
     public boolean existsBySno(String sno) {
         return studentDao.existsBySno(sno);
     }

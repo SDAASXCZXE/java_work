@@ -16,6 +16,9 @@ public interface StudentDao {
     /** 根据学号删除学生，成功返回 true */
     boolean deleteStudent(String sno);
 
+    /** 更新学生信息，成功返回 true */
+    boolean updateStudent(Student student);
+
     /** 检查学号是否存在 */
     boolean existsBySno(String sno);
 }

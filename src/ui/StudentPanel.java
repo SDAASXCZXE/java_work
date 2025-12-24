@@ -1,17 +1,14 @@
 package ui;
 
 import java.time.LocalDate;
-import java.sql.*;
 import service.*;
 import model.Student;
 import service.impl.StudentServiceImpl;
-import util.DBUtil;
 import util.RefreshCenter;
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.util.Date;
 
   // 用于数据库中的日期类型
 
@@ -162,6 +159,57 @@ public class StudentPanel extends JPanel {
         try {
             service.StudentService studentService = new service.impl.StudentServiceImpl();
             java.util.List<Student> students = studentService.listStudents();
+
+            // 如果 service 返回空，尝试回退到直接 JDBC 查询（帮助排查问题）
+            if (students == null || students.isEmpty()) {
+                // 直接使用 DBUtil 查询，作为回退
+                try (java.sql.Connection conn = util.DBUtil.getConnection()) {
+                    if (conn != null) {
+                        try (java.sql.Statement stmt = conn.createStatement();
+                             java.sql.ResultSet rs = stmt.executeQuery("SELECT * FROM student")) {
+                            while (rs.next()) {
+                                Object dorm = "";
+                                String building = null;
+                                String roomNo = null;
+                                try { building = rs.getString("building"); } catch (Exception ignored) {}
+                                try { roomNo = rs.getString("room_number"); } catch (Exception ignored) {}
+                                if (building != null && roomNo != null) dorm = building + roomNo;
+                                else if (roomNo != null) dorm = roomNo;
+
+                                Object bed = "";
+                                try { int b = rs.getInt("bed_number"); if (!rs.wasNull()) bed = String.valueOf(b); } catch (Exception ignored) {}
+                                Object inDate = null;
+                                try { java.sql.Date d = rs.getDate("in_date"); inDate = d == null ? "" : d; } catch (Exception ignored) { inDate = ""; }
+
+                                Object[] row = {
+                                        rs.getString("sno"),
+                                        rs.getString("name"),
+                                        rs.getString("gender"),
+                                        rs.getString("college"),
+                                        rs.getString("major"),
+                                        rs.getString("grade"),
+                                        rs.getString("class"),
+                                        dorm,
+                                        bed,
+                                        rs.getString("phone"),
+                                        inDate
+                                };
+                                tableModel.addRow(row);
+                            }
+                        }
+                        updateStudentCount();
+                        return;
+                    } else {
+                        // 无法建立连接
+                        JOptionPane.showMessageDialog(this, "无法连接到数据库，请检查 DBUtil 配置。", "提示", JOptionPane.WARNING_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                    JOptionPane.showMessageDialog(this, "通过直接 JDBC 回退加载学生失败：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+
+            // 正常通过 service 加载
             for (Student s : students) {
                 Object dorm = "";
                 if (s.getBuilding() != null && s.getRoomNumber() != null) {
@@ -192,6 +240,18 @@ public class StudentPanel extends JPanel {
         } catch (Exception e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "加载学生数据失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+        }
+
+        // 如果没有任何数据，显示占位提示行并给出友好提示
+        if (tableModel.getRowCount() == 0) {
+            // 清空并添加一行提示（保持列数一致）
+            tableModel.setRowCount(0);
+            Object[] placeholder = {"", "暂无学生记录或无法连接数据库", "", "", "", "", "", "", "", "", ""};
+            tableModel.addRow(placeholder);
+            updateStudentCount();
+            JOptionPane.showMessageDialog(this,
+                    "当前未查询到学生记录。\n1) 请确认数据库连接配置（util/DBUtil.java）。\n2) 确认 student 表存在并包含数据。",
+                    "提示", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
@@ -437,27 +497,90 @@ public class StudentPanel extends JPanel {
         JButton cancelButton = new JButton("取消");
 
         saveButton.addActionListener(e -> {
-            // 更新表格数据
-            for (int i = 0; i < fields.length; i++) {
-                if (i == 2) {
-                    tableModel.setValueAt(((JComboBox) fields[i]).getSelectedItem(), selectedRow, i);
-                } else if (i == 8 || i == 9) {
-                    // 处理宿舍信息
-                    if (i == 8) {
-                        String building = ((String) ((JComboBox) fields[8]).getSelectedItem()).replace("栋", "");
-                        String room = ((JTextField) fields[9]).getText().trim();
-                        tableModel.setValueAt(building + room, selectedRow, 7);
-                    }
-                } else if (i == 7) {
-                    tableModel.setValueAt(((JTextField) fields[i]).getText(), selectedRow, 9);
-                } else if (i != 0) {
-                    tableModel.setValueAt(((JTextField) fields[i]).getText(), selectedRow, i);
-                }
-            }
+            // 构建 Student 对象并提交到数据库（通过 Service）
+            try {
+                model.Student updated = new model.Student();
+                // 学号不可编辑，但从字段或表格中读取
+                String sno = ((JTextField) fields[0]).getText().trim();
+                updated.setSno(sno);
+                updated.setName(((JTextField) fields[1]).getText().trim());
 
-            JOptionPane.showMessageDialog(dialog, "学生信息修改成功！");
-            dialog.dispose();
-        });
+
+                // 性别可能为 JComboBox
+                String gender = "";
+                if (fields[2] instanceof JComboBox) {
+                    Object sel = ((JComboBox<?>) fields[2]).getSelectedItem();
+                    gender = sel == null ? "" : sel.toString();
+                } else {
+                    gender = ((JTextField) fields[2]).getText().trim();
+                }
+                updated.setGender(gender);
+
+                updated.setCollege(((JTextField) fields[3]).getText().trim());
+                updated.setMajor(((JTextField) fields[4]).getText().trim());
+                updated.setGrade(((JTextField) fields[5]).getText().trim());
+                updated.setClazz(((JTextField) fields[6]).getText().trim());
+                updated.setPhone(((JTextField) fields[7]).getText().trim());
+
+                // 宿舍楼与房间号
+                String building = "";
+                if (fields[8] instanceof JComboBox) {
+                    Object sel = ((JComboBox<?>) fields[8]).getSelectedItem();
+                    building = sel == null ? "" : sel.toString().replace("栋", "");
+                } else {
+                    building = ((JTextField) fields[8]).getText().trim().replace("栋", "");
+                }
+                String room = ((JTextField) fields[9]).getText().trim();
+                updated.setBuilding(building);
+                updated.setRoomNumber(room);
+
+                // 床位号：从表格读原值（第8列），保留原样或解析数字
+                Object bedObj = tableModel.getValueAt(selectedRow, 8);
+                int bedNum = 0;
+                if (bedObj != null) {
+                    String bstr = bedObj.toString().replaceAll("[^0-9]", "").trim();
+                    if (!bstr.isEmpty()) {
+                        try { bedNum = Integer.parseInt(bstr); } catch (Exception ignored) {}
+                    }
+                }
+                updated.setBedNumber(bedNum);
+
+                // 保持原入住日期（如果表格有值则使用）
+                Object inDateObj = tableModel.getValueAt(selectedRow, 10);
+                if (inDateObj != null && !inDateObj.toString().isEmpty()) {
+                    try {
+                        if (inDateObj instanceof java.sql.Date) {
+                            java.sql.Date d = (java.sql.Date) inDateObj;
+                            updated.setInDate(d.toLocalDate());
+                        } else {
+                            // 尝试解析 yyyy-MM-dd
+                            String s = inDateObj.toString().trim();
+                            try {
+                                updated.setInDate(java.time.LocalDate.parse(s));
+                            } catch (Exception ignored) { }
+                        }
+                    } catch (Exception ex) {
+                        // 忽略解析错误，保留 null
+                    }
+                }
+
+                // 调用服务层更新
+                service.StudentService studentService = new service.impl.StudentServiceImpl();
+                boolean ok = studentService.updateStudent(updated);
+                if (ok) {
+                    JOptionPane.showMessageDialog(dialog, "学生信息修改成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
+                    dialog.dispose();
+                    loadStudentsFromDB();
+                    updateStudentCount();
+                    util.RefreshCenter.notify("students-updated");
+                } else {
+                    JOptionPane.showMessageDialog(dialog, "更新学生信息失败，请检查数据库或日志。", "错误", JOptionPane.ERROR_MESSAGE);
+                }
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                JOptionPane.showMessageDialog(dialog, "保存学生信息时发生错误：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            }
+         });
 
         cancelButton.addActionListener(e -> dialog.dispose());
 

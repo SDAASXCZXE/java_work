@@ -7,6 +7,7 @@ import util.DBUtil;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -15,6 +16,16 @@ import java.util.List;
  * 学生 DAO 实现类（JDBC 实现）
  */
 public class StudentDaoImpl implements StudentDao {
+
+    // 判断 ResultSet 中是否包含指定列名（忽略大小写）
+    private boolean hasColumn(ResultSet rs, String columnName) throws SQLException {
+        ResultSetMetaData md = rs.getMetaData();
+        int cols = md.getColumnCount();
+        for (int i = 1; i <= cols; i++) {
+            if (columnName.equalsIgnoreCase(md.getColumnName(i))) return true;
+        }
+        return false;
+    }
 
     // 查询所有学生
     @Override
@@ -37,8 +48,21 @@ public class StudentDaoImpl implements StudentDao {
                 s.setGrade(rs.getString("grade"));
                 s.setClazz(rs.getString("class"));
                 s.setPhone(rs.getString("phone"));
-                java.sql.Date inDate = rs.getDate("in_date");
+                java.sql.Date inDate = null;
+                try { inDate = rs.getDate("in_date"); } catch (Exception ignored) {}
                 if (inDate != null) s.setInDate(inDate.toLocalDate());
+
+                // 可选列：building, room_number, bed_number
+                try {
+                    if (hasColumn(rs, "building")) s.setBuilding(rs.getString("building"));
+                } catch (Exception ignored) {}
+                try {
+                    if (hasColumn(rs, "room_number")) s.setRoomNumber(rs.getString("room_number"));
+                } catch (Exception ignored) {}
+                try {
+                    if (hasColumn(rs, "bed_number")) s.setBedNumber(rs.getInt("bed_number"));
+                } catch (Exception ignored) {}
+
                 list.add(s);
             }
         } catch (Exception e) {
@@ -106,6 +130,35 @@ public class StudentDaoImpl implements StudentDao {
 
             return rows > 0;
         } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    // 更新学生信息
+    @Override
+    public boolean updateStudent(Student s) {
+        String sql = "UPDATE student SET name=?, gender=?, college=?, major=?, grade=?, class=?, phone=?, in_date=?, building=?, room_number=?, bed_number=? WHERE sno=?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (conn == null) return false;
+            ps.setString(1, s.getName());
+            ps.setString(2, s.getGender());
+            ps.setString(3, s.getCollege());
+            ps.setString(4, s.getMajor());
+            ps.setString(5, s.getGrade());
+            ps.setString(6, s.getClazz());
+            ps.setString(7, s.getPhone());
+            if (s.getInDate() != null) ps.setDate(8, java.sql.Date.valueOf(s.getInDate()));
+            else ps.setDate(8, java.sql.Date.valueOf(java.time.LocalDate.now()));
+            ps.setString(9, s.getBuilding());
+            ps.setString(10, s.getRoomNumber());
+            ps.setInt(11, s.getBedNumber());
+            ps.setString(12, s.getSno());
+
+            int c = ps.executeUpdate();
+            return c > 0;
+        } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
