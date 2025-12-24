@@ -429,19 +429,17 @@ public class StudentPanel extends JPanel {
      */
     private void editStudent() {
         final int selectedRow = studentTable.getSelectedRow();
-         if (selectedRow == -1) {
-             JOptionPane.showMessageDialog(this, "请先选择要编辑的学生！", "提示", JOptionPane.WARNING_MESSAGE);
-             return;
-         }
+        if (selectedRow == -1) {
+            JOptionPane.showMessageDialog(this, "请先选择要编辑的学生！", "提示", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-         // 获取选中的学生信息
-         final String studentId = tableModel.getValueAt(selectedRow, 0).toString();
-         final String name = tableModel.getValueAt(selectedRow, 1).toString();
+        final String studentSno = tableModel.getValueAt(selectedRow, 0).toString();
 
-         final JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "编辑学生信息", true);
-         dialog.setLayout(new BorderLayout());
-         dialog.setSize(400, 500);
-         dialog.setLocationRelativeTo(this);
+        final JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "编辑学生信息", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(400, 500);
+        dialog.setLocationRelativeTo(this);
 
         JPanel formPanel = new JPanel(new GridLayout(10, 2, 10, 10));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
@@ -469,7 +467,7 @@ public class StudentPanel extends JPanel {
                         break;
                     case 9:
                         String room = tableModel.getValueAt(selectedRow, 7).toString();
-                        currentValue = room.length() > 1 ? room.substring(1) : "101";
+                        currentValue = room.length() > 1 ? room.substring(1) : "";
                         break;
                 }
             }
@@ -615,10 +613,10 @@ public class StudentPanel extends JPanel {
                     Object sel = ((JComboBox<?>) buildingComp).getSelectedItem();
                     b = sel == null ? "" : sel.toString();
                 } else if (buildingComp instanceof JTextField) {
-                    b = ((JTextField) buildingComp).getText().trim();
+                    b = ((JTextField) buildingComp).getText().trim();  //*栋
                 }
                 if (!b.endsWith("栋") && b.length() == 1) b = b + "栋";
-                String rn = roomField.getText().trim();
+                String rn = roomField.getText().trim();  // 房间号
 
                 // 设置宿舍信息（如果数据库表有这些字段的话）
                 // 注意：如果你的student表没有building和room_number字段，这些调用会失败！
@@ -764,6 +762,27 @@ public class StudentPanel extends JPanel {
                 // 3. 保存学生信息
                 service.StudentService studentService = new service.impl.StudentServiceImpl();
                 boolean studentOk = studentService.updateStudent(updated);
+                Student student = new Student();
+                try {
+
+                    if (studentOk) {
+                        // 成功处理
+                    } else {
+                        // 添加失败原因
+                        String errorDetail = "可能原因：\n";
+                        errorDetail += "1. 数据库连接失败\n";
+                        errorDetail += "2. 学号已存在\n";
+                        errorDetail += "3. 宿舍不存在或已满\n";
+                        errorDetail += "4. 数据格式错误";
+
+                        JOptionPane.showMessageDialog(dialog,
+                                "保存学生信息失败！\n" + errorDetail,
+                                "错误",
+                                JOptionPane.ERROR_MESSAGE);
+                    }
+                } catch (Exception ex) {
+                    // ...
+                }
 
                 if (studentOk) {
                     JOptionPane.showMessageDialog(dialog, "学生信息修改成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
@@ -784,6 +803,7 @@ public class StudentPanel extends JPanel {
 
         cancelButton.addActionListener(e -> dialog.dispose());
         dialog.setVisible(true);
+
     }
 
     /**

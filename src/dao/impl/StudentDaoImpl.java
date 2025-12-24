@@ -138,10 +138,15 @@ public class StudentDaoImpl implements StudentDao {
     // 更新学生信息
     @Override
     public boolean updateStudent(Student s) {
-        String sql = "UPDATE student SET name=?, gender=?, college=?, major=?, grade=?, class=?, phone=?, in_date=?, building=?, room_number=?, bed_number=? WHERE sno=?";
+        // 修改SQL：使用实际的字段名 dorm_no 和 bed_no
+        String sql = "UPDATE student SET name=?, gender=?, college=?, major=?, grade=?, class=?, phone=?, in_date=?, dorm_no=?, bed_no=? WHERE sno=?";
+
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
+
             if (conn == null) return false;
+
+            // 设置参数（注意：只有11个参数了，不是12个）
             ps.setString(1, s.getName());
             ps.setString(2, s.getGender());
             ps.setString(3, s.getCollege());
@@ -149,15 +154,34 @@ public class StudentDaoImpl implements StudentDao {
             ps.setString(5, s.getGrade());
             ps.setString(6, s.getClazz());
             ps.setString(7, s.getPhone());
-            if (s.getInDate() != null) ps.setDate(8, java.sql.Date.valueOf(s.getInDate()));
-            else ps.setDate(8, java.sql.Date.valueOf(java.time.LocalDate.now()));
-            ps.setString(9, s.getBuilding());
-            ps.setString(10, s.getRoomNumber());
-            ps.setInt(11, s.getBedNumber());
-            ps.setString(12, s.getSno());
+
+            // in_date 处理：数据库中为varchar，需要转换为字符串
+            if (s.getInDate() != null) {
+                ps.setString(8, s.getInDate().toString());  // 改为setString
+            } else {
+                ps.setString(8, java.time.LocalDate.now().toString());
+            }
+
+            // 关键修改：构建 dorm_no 字符串（例如 "A栋101"）
+            String dormNo = "";
+            if (s.getBuilding() != null && !s.getBuilding().isEmpty() &&
+                    s.getRoomNumber() != null && !s.getRoomNumber().isEmpty()) {
+                dormNo = s.getBuilding() + "栋" + s.getRoomNumber();
+            }
+            ps.setString(9, dormNo);  // dorm_no
+
+            // bed_no 处理：数据库中为varchar(50)，可能是字符串
+            String bedNo = "";
+            if (s.getBedNumber() > 0) {
+                bedNo = String.valueOf(s.getBedNumber());
+            }
+            ps.setString(10, bedNo);  // bed_no
+
+            ps.setString(11, s.getSno());  // WHERE 条件
 
             int c = ps.executeUpdate();
             return c > 0;
+
         } catch (Exception e) {
             e.printStackTrace();
             return false;
