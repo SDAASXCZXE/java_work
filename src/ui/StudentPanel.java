@@ -655,137 +655,101 @@ public class StudentPanel extends JPanel {
                 // 2. 处理宿舍分配逻辑
                 service.RoomService roomService = new service.impl.RoomServiceImpl();
 
-                // 获取原始宿舍信息（如果有的话）
-                String originalDorm = tableModel.getValueAt(selectedRow, 7).toString();
+// 获取原始宿舍信息
+                String originalDorm = tableModel.getValueAt(selectedRow, 7).toString(); // 例如 "A栋101"
                 String originalBuilding = "";
                 String originalRoomNumber = "";
 
-                if (!originalDorm.isEmpty() && originalDorm.length() > 1) {
-                    originalBuilding = originalDorm.substring(0, 1) + "栋";
-                    originalRoomNumber = originalDorm.substring(1);
+// 修复解析逻辑：不能死用 substring(0,1)，因为“10栋”占两个字符
+                if (originalDorm.contains("栋")) {
+                    int index = originalDorm.indexOf("栋");
+                    originalBuilding = originalDorm.substring(0, index + 1); // 得到 "A栋"
+                    originalRoomNumber = originalDorm.substring(index + 1);  // 得到 "101"
                 }
 
-                // 新宿舍信息
-                String newBuilding = b;
-                String newRoomNumber = rn;
+// 新宿舍信息
+                String newBuilding = b;      // UI选中的楼栋
+                String newRoomNumber = rn;   // UI输入的房间号
+                String newDorm = newBuilding + newRoomNumber;
 
-                // 情况1: 没有选择宿舍（清空宿舍分配）
-                if (newRoomNumber.isEmpty()) {
+// 判断宿舍是否发生变更
+                boolean isRoomChanged = !originalDorm.equals(newDorm);
 
-                    // 如果原来有宿舍，需要从原宿舍迁出
+                if (isRoomChanged) {
+                    // --- 步骤 A: 处理原宿舍（迁出） ---
                     if (!originalRoomNumber.isEmpty()) {
-
-                        model.Room originalRoom = null;
+                        model.Room oldRoom = null;
                         for (model.Room r : roomService.findAll()) {
-                            if (r.getRoomNumber().equals(originalRoomNumber)
-                                    && r.getBuilding().equals(originalBuilding)) {
-                                originalRoom = r;
+                            if (r.getRoomNumber().equals(originalRoomNumber) && r.getBuilding().equals(originalBuilding)) {
+                                oldRoom = r;
+                                break;
+                            }
+                        }
+                        if (oldRoom != null) {
+                            int occ = Math.max(0, oldRoom.getOccupied() - 1);
+                            int avail = oldRoom.getTotalBeds() - occ;
+                            String status = occ >= oldRoom.getTotalBeds() ? "已住满" : "有空位";
+                            // 写入数据库
+                            roomService.updateOccupancy(originalRoomNumber, occ, avail, status);
+                        }
+                    }
+
+                    // --- 步骤 B: 处理新宿舍（迁入） ---
+                    if (!newRoomNumber.isEmpty()) {
+                        model.Room targetRoom = null;
+                        for (model.Room r : roomService.findAll()) {
+                            if (r.getRoomNumber().equals(newRoomNumber) && r.getBuilding().equals(newBuilding)) {
+                                targetRoom = r;
                                 break;
                             }
                         }
 
-                        if (originalRoom != null) {
-                            int newOccupied = originalRoom.getOccupied() - 1;
-                            int newAvailable = originalRoom.getAvailableBeds() + 1;
-
-                            newOccupied = Math.max(0, newOccupied);
-                            newAvailable = Math.min(originalRoom.getTotalBeds(), newAvailable);
-
-                            String status = newOccupied >= originalRoom.getTotalBeds()
-                                    ? model.Room.RoomStatus.FULL.name()
-                                    : model.Room.RoomStatus.AVAILABLE.name();
-
-                            roomService.updateOccupancy(
-                                    originalRoomNumber, newOccupied, newAvailable, status);
+                        if (targetRoom == null) {
+                            JOptionPane.showMessageDialog(dialog, "宿舍 " + newDorm + " 不存在！", "错误", JOptionPane.ERROR_MESSAGE);
+                            return;
                         }
-                    }
+                        if (targetRoom.getAvailableBeds() <= 0) {
+                            JOptionPane.showMessageDialog(dialog, "宿舍 " + newDorm + " 已满！", "错误", JOptionPane.ERROR_MESSAGE);
+                            return;
+                        }
 
-                    // 清空床位号（字符串）
-                    updated.setBedNumber("");
+                        // 计算新宿舍人数
+                        int newOcc = targetRoom.getOccupied() + 1;
+                        int newAvail = targetRoom.getTotalBeds() - newOcc;
+                        String newStatus = newOcc >= targetRoom.getTotalBeds() ? "已住满" : "有空位";
+
+                        // 【关键修复】：这里必须调用更新，否则新宿舍人数永远不变
+                        roomService.updateOccupancy(newRoomNumber, newOcc, newAvail, newStatus);
+
+                        // 设置学生的床位号（这里简单使用 当前人数+1）
+                        updated.setBedNumber(String.valueOf(newOcc));
+                    } else {
+                        updated.setBedNumber(""); // 如果没填房间号，清空床位
+                    }
+                } else {
+                    // 宿舍没变，保持原来的床位号
+                    updated.setBedNumber(tableModel.getValueAt(selectedRow, 8).toString());
                 }
+                if (isRoomChanged) {
+                    // ... 执行了原宿舍扣减和新宿舍增加的代码 ...
 
-                // 情况2: 选择了新宿舍
-                else {
+                    // 【关键动作】：发出通知，告诉所有订阅了 "rooms-updated" 的组件去刷新
+                    util.RefreshCenter.notify("rooms-updated");
 
-                    // 查找目标宿舍
-                    model.Room targetRoom = null;
-                    for (model.Room r : roomService.findAll()) {
-                        if (r.getRoomNumber().equals(newRoomNumber)
-                                && r.getBuilding().equals(newBuilding)) {
-                            targetRoom = r;
-                            break;
-                        }
-                    }
-
-                    if (targetRoom == null) {
-                        JOptionPane.showMessageDialog(dialog,
-                                "宿舍 " + newBuilding + newRoomNumber + " 不存在！",
-                                "错误", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-
-                    if (targetRoom.getAvailableBeds() <= 0) {
-                        JOptionPane.showMessageDialog(dialog,
-                                "宿舍 " + newBuilding + newRoomNumber + " 已满！",
-                                "错误", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-
-                    // ===== 核心修复：字符串 ↔ 数字 =====
-                    int nextBedInt = targetRoom.getOccupied() + 1;
-
-                    if (nextBedInt > targetRoom.getTotalBeds()) {
-                        JOptionPane.showMessageDialog(dialog,
-                                "宿舍 " + newBuilding + newRoomNumber + " 床位已满！",
-                                "错误", JOptionPane.ERROR_MESSAGE);
-                        return;
-                    }
-
-                    // 存回 Student：字符串
-                    updated.setBedNumber(toStr(nextBedInt));
-
-                    // ===== 是否换宿舍 =====
-                    boolean isSameRoom =
-                            originalBuilding.equals(newBuilding)
-                                    && originalRoomNumber.equals(newRoomNumber);
-
-                    if (!isSameRoom && !originalRoomNumber.isEmpty()) {
-
-                        model.Room originalRoom = null;
-                        for (model.Room r : roomService.findAll()) {
-                            if (r.getRoomNumber().equals(originalRoomNumber)
-                                    && r.getBuilding().equals(originalBuilding)) {
-                                originalRoom = r;
-                                break;
-                            }
-                        }
-
-                        if (originalRoom != null) {
-                            int newOccupied = originalRoom.getOccupied() - 1;
-                            int newAvailable = originalRoom.getAvailableBeds() + 1;
-
-                            newOccupied = Math.max(0, newOccupied);
-                            newAvailable = Math.min(originalRoom.getTotalBeds(), newAvailable);
-
-                            String status = newOccupied >= originalRoom.getTotalBeds()
-                                    ? model.Room.RoomStatus.FULL.name()
-                                    : model.Room.RoomStatus.AVAILABLE.name();
-
-                            roomService.updateOccupancy(
-                                    originalRoomNumber, newOccupied, newAvailable, status);
-                        }
-                    }
+                    // 同时也要通知学生列表刷新（如果你之前没加的话）
+                    util.RefreshCenter.notify("students-updated");
                 }
-
                 // 3. 保存学生信息
                 service.StudentService studentService = new service.impl.StudentServiceImpl();
                 boolean studentOk = studentService.updateStudent(updated);
-                Student student = new Student();
-
+              //  Student student = new Student();
+                RoomPanel roomPanel = new RoomPanel();
+                roomPanel.loadRoomsFromDB(); // 刷新宿舍数据
                 if (studentOk) {
                     JOptionPane.showMessageDialog(dialog, "学生信息修改成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
                     dialog.dispose();
                     loadStudentsFromDB();
+
                     updateStudentCount();
                     util.RefreshCenter.notify("students-updated");
                 } else {

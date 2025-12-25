@@ -7,8 +7,6 @@ import java.awt.event.ActionEvent;
 import java.util.List;
 
 import model.Room;
-import model.Room.RoomType;
-import model.Room.RoomStatus;
 import service.RoomService;
 import service.impl.RoomServiceImpl;
 import util.DBUtil;
@@ -40,6 +38,8 @@ public class RoomPanel extends JPanel {
     public RoomPanel() {
         initUI();
         loadRoomsFromDB();
+        // 【添加这一行】：注册监听器，监听到 "rooms-updated" 信号时自动刷新列表
+        util.RefreshCenter.register("rooms-updated", this::loadRoomsFromDB);
     }
 
     /**
@@ -177,7 +177,7 @@ public class RoomPanel extends JPanel {
     /**
      * 从数据库加载宿舍数据到表格，使用 Service 层（持久化）
      */
-    private void loadRoomsFromDB() {
+    public void loadRoomsFromDB() {
         tableModel.setRowCount(0);
         try {
             List<Room> rooms = roomService.findAll();
@@ -202,15 +202,15 @@ public class RoomPanel extends JPanel {
                 Object[] row = {
                         r.getRoomNumber(),
                         r.getBuilding(),
-                        // 保护性调用：若枚举为 null，则显示空字符串，避免 NPE
-                        r.getRoomType() == null ? "" : r.getRoomType().getDescription(),
+                        // 现在 roomType 已经是字符串
+                        r.getRoomType() == null ? "" : r.getRoomType(),
                         r.getTotalBeds(),
                         r.getOccupied(),
                         r.getAvailableBeds(),
                         r.getMonitor(),
                         r.getPhone(),
                         r.getHygieneScore(),
-                        r.getStatus() == null ? "" : r.getStatus().getDescription(),
+                        r.getStatus() == null ? "" : r.getStatus(),
                         r.getRemarks()
                 };
                 tableModel.addRow(row);
@@ -368,9 +368,8 @@ public class RoomPanel extends JPanel {
             // 确保 available 不超过 total
             available = Math.max(0, Math.min(available, totalBeds));
 
-            RoomType typeEnum = RoomType.fromDescription(roomType);
-            RoomStatus statusEnum = RoomStatus.fromDescription(statusText);
-            Room room = new Room(roomNumber, building, typeEnum, totalBeds, occupied, available, monitor, phone, hygiene, statusEnum, remarks);
+            // 直接使用字符串
+            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
 
             // 新增：检查房间号唯一（使用已有的 roomService 实例）
             if (roomService.existsByRoomNumber(roomNumber)) {
@@ -534,9 +533,8 @@ public class RoomPanel extends JPanel {
 
             available = Math.max(0, Math.min(available, totalBeds));
 
-            RoomType typeEnum = RoomType.fromDescription(roomType);
-            RoomStatus statusEnum = RoomStatus.fromDescription(statusText);
-            Room room = new Room(roomNumber, building, typeEnum, totalBeds, occupied, available, monitor, phone, hygiene, statusEnum, remarks);
+            // 直接使用字符串
+            Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
             boolean ok = roomService.update(room);
             if (ok) {
                 loadRoomsFromDB();

@@ -9,87 +9,25 @@ import java.util.*;
 public class Room {
     private String roomNumber;    // 宿舍号，如 "101"
     private String building;       // 宿舍楼，如 "A栋"
-    private RoomType roomType;    // 房间类型
+    private String roomType;    // 房间类型
     private int totalBeds;        // 床位总数
     private int occupied;          // 已住人数
     private int availableBeds;    // 空余床位
     private String monitor;        // 宿舍长学号，可能为空
     private String phone;          // 联系电话，可能为空
     private int hygieneScore;     // 卫生评分
-    private RoomStatus status;     // 状态
+    private String status;     // 状态
     private String remarks;        // 备注，可能为空
     
     // 床位分配信息：床位号 -> 学生学号
     private Map<Integer, String> bedAssignment;  // 床位分配映射
 
-    // 房间类型枚举
-    public enum RoomType {
-        SINGLE("单人间", 1),
-        DOUBLE("二人间", 2),
-        QUAD("四人间", 4),
-        SIX("六人间", 6),
-        EIGHT("八人间", 8);
 
-        private final String description;
-        private final int bedCount;
-
-        RoomType(String description, int bedCount) {
-            this.description = description;
-            this.bedCount = bedCount;
-        }
-
-        public String getDescription() {
-            return description;
-        }
-        
-        public int getBedCount() {
-            return bedCount;
-        }
-        
-        // 根据描述获取枚举值
-        public static RoomType fromDescription(String description) {
-            for (RoomType type : RoomType.values()) {
-                if (type.getDescription().equals(description)) {
-                    return type;
-                }
-            }
-            throw new IllegalArgumentException("无效的房间类型: " + description);
-        }
-    }
-
-    // 房间状态枚举
-    public enum RoomStatus {
-        FULL("已住满"),
-        AVAILABLE("有空位"),
-        VACANT("空置"),
-        MAINTENANCE("维修中");
-
-        private final String description;
-
-        RoomStatus(String description) {
-            this.description = description;
-        }
-
-        public String getDescription() {
-            return description;
-        }
-        
-        // 根据描述获取枚举值
-        public static RoomStatus fromDescription(String description) {
-            for (RoomStatus status : RoomStatus.values()) {
-                if (status.getDescription().equals(description)) {
-                    return status;
-                }
-            }
-            throw new IllegalArgumentException("无效的房间状态: " + description);
-        }
-    }
-    
     /**
      * 有参构造函数，创建一个完整的 Room 实例
      */
-    public Room(String roomNumber, String building, RoomType roomType, int totalBeds, int occupied, int availableBeds, 
-                String monitor, String phone, int hygieneScore, RoomStatus status, String remarks) {
+    public Room(String roomNumber, String building, String roomType, int totalBeds, int occupied, int availableBeds,
+                String monitor, String phone, int hygieneScore, String status, String remarks) {
         this.roomNumber = roomNumber;
         this.building = building;
         this.roomType = roomType;
@@ -108,17 +46,17 @@ public class Room {
     }
     
     /**
-     * 简化构造函数，根据房间类型自动设置床位数量
+     * 简化构造函数，根据房间类型字符串自动设置床位数量（如果无法识别则使用默认 4）
      */
-    public Room(String roomNumber, String building, RoomType roomType) {
+    public Room(String roomNumber, String building, String roomType) {
         this.roomNumber = roomNumber;
         this.building = building;
         this.roomType = roomType;
-        this.totalBeds = roomType.getBedCount();
+        this.totalBeds = bedCountFromRoomType(roomType);
         this.occupied = 0;
         this.availableBeds = totalBeds;
         this.hygieneScore = 100;
-        this.status = RoomStatus.VACANT;
+        this.status = "空置";
         this.remarks = "";
         this.bedAssignment = new HashMap<>();
     }
@@ -140,13 +78,13 @@ public class Room {
         this.building = building; 
     }
 
-    public RoomType getRoomType() { 
-        return roomType; 
+    public String getRoomType() {
+        return roomType;
     }
     
-    public void setRoomType(RoomType roomType) { 
+    public void setRoomType(String roomType) {
         this.roomType = roomType;
-        this.totalBeds = roomType.getBedCount();
+        this.totalBeds = bedCountFromRoomType(roomType);
         updateStatus();
     }
 
@@ -201,12 +139,12 @@ public class Room {
         this.hygieneScore = Math.max(0, Math.min(100, hygieneScore));
     }
 
-    public RoomStatus getStatus() { 
-        return status; 
+    public String getStatus() {
+        return status;
     }
     
-    public void setStatus(RoomStatus status) { 
-        this.status = status; 
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public String getRemarks() { 
@@ -261,17 +199,34 @@ public class Room {
         return bedAssignment.containsValue(studentId);
     }
     
-    // 更新房间状态
+    // 更新房间状态（使用中文描述）
     private void updateStatus() {
         availableBeds = totalBeds - occupied;
-        
-        if (availableBeds == totalBeds) {
-            status = RoomStatus.VACANT;
+        if (availableBeds >= totalBeds) {
+            status = "空置";
         } else if (availableBeds > 0) {
-            status = RoomStatus.AVAILABLE;
+            status = "有空位";
         } else {
-            status = RoomStatus.FULL;
+            status = "已住满";
         }
+    }
+
+    /**
+     * 根据房间类型字符串（如 "四人间"）推断床位数，如果无法识别返回默认 4
+     */
+    private int bedCountFromRoomType(String roomType) {
+        if (roomType == null) return 4;
+        roomType = roomType.trim();
+        if (roomType.contains("二人")) return 2;
+        if (roomType.contains("四人")) return 4;
+        if (roomType.contains("六人")) return 6;
+        if (roomType.contains("八人")) return 8;
+        // 也支持英文写法
+        if (roomType.toLowerCase().contains("double") || roomType.contains("2")) return 2;
+        if (roomType.toLowerCase().contains("quad") || roomType.contains("4")) return 4;
+        if (roomType.toLowerCase().contains("six") || roomType.contains("6")) return 6;
+        if (roomType.toLowerCase().contains("eight") || roomType.contains("8")) return 8;
+        return 4;
     }
 
     /**
@@ -282,11 +237,11 @@ public class Room {
         return "Room{" +
                 "roomNumber='" + roomNumber + '\'' +
                 ", building='" + building + '\'' +
-                ", roomType=" + roomType.getDescription() +
+                ", roomType='" + (roomType == null ? "" : roomType) + '\'' +
                 ", totalBeds=" + totalBeds +
                 ", occupied=" + occupied +
                 ", availableBeds=" + availableBeds +
-                ", status=" + status.getDescription() +
+                ", status='" + (status == null ? "" : status) + '\'' +
                 ", monitor='" + monitor + '\'' +
                 ", phone='" + phone + '\'' +
                 ", hygieneScore=" + hygieneScore +
