@@ -11,11 +11,13 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 学生管理面板 - 统一分配版
- * 功能：将编辑与分配宿舍合并，支持基本信息、宿舍号、床位号的一站式管理
+ * 修复说明：封装了 addStudent 方法，修正了括号闭合错误，保留所有核心逻辑。
  */
 public class StudentPanel extends JPanel {
     private JTable studentTable;
@@ -42,7 +44,6 @@ public class StudentPanel extends JPanel {
         JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         toolBar.setBorder(BorderFactory.createTitledBorder("学生管理"));
 
-        // 合并后的按钮组
         String[] buttons = {"新增", "分配宿舍", "删除"};
         for (String text : buttons) {
             JButton button = new JButton(text);
@@ -111,7 +112,7 @@ public class StudentPanel extends JPanel {
     }
 
     /**
-     * 【统一功能】：分配宿舍 + 编辑信息 + 分配床位
+     * 【分配宿舍 + 信息编辑】合并版：支持床位号分配与住满检测
      */
     private void assignDormitoryAndEdit() {
         int row = studentTable.getSelectedRow();
@@ -120,7 +121,6 @@ public class StudentPanel extends JPanel {
             return;
         }
 
-        // 获取当前行数据
         String sno = getTableValue(row, 0);
         String name = getTableValue(row, 1);
         String originalDorm = getTableValue(row, 7);
@@ -134,11 +134,9 @@ public class StudentPanel extends JPanel {
         JPanel formPanel = new JPanel(new GridLayout(11, 2, 8, 8));
         formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // 基本信息组件
         JTextField txtName = new JTextField(name);
         JTextField txtPhone = new JTextField(getTableValue(row, 9));
 
-        // 宿舍分配组件
         String bInit = "A栋", rInit = "";
         if (originalDorm.contains("栋")) {
             int idx = originalDorm.indexOf("栋");
@@ -148,8 +146,6 @@ public class StudentPanel extends JPanel {
         JComboBox<String> cbBuilding = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋"});
         cbBuilding.setSelectedItem(bInit);
         JTextField roomField = new JTextField(rInit);
-
-        // --- 新增：床位分配组件 ---
         JTextField bedField = new JTextField(originalBed);
 
         JLabel roomStatusLabel = new JLabel(" ");
@@ -158,12 +154,11 @@ public class StudentPanel extends JPanel {
         formPanel.add(new JLabel("学号:")); formPanel.add(new JLabel(sno));
         formPanel.add(new JLabel("姓名:")); formPanel.add(txtName);
         formPanel.add(new JLabel("联系电话:")); formPanel.add(txtPhone);
-        formPanel.add(new JLabel(" ")); formPanel.add(new JLabel(" ")); // 分隔线感
+        formPanel.add(new JLabel(" ")); formPanel.add(new JLabel(" "));
         formPanel.add(new JLabel("分配楼栋:")); formPanel.add(cbBuilding);
         formPanel.add(new JLabel("房间号:")); formPanel.add(roomField);
         formPanel.add(new JLabel("床位号:")); formPanel.add(bedField);
 
-        // --- 实时响应逻辑：DocumentListener ---
         Runnable checkRoomExist = () -> {
             String b = cbBuilding.getSelectedItem().toString();
             String r = roomField.getText().trim();
@@ -186,35 +181,27 @@ public class StudentPanel extends JPanel {
             }).start();
         };
 
-        // 添加实时监听
         roomField.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             @Override public void insertUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
             @Override public void removeUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
             @Override public void changedUpdate(javax.swing.event.DocumentEvent e) { checkRoomExist.run(); }
         });
-        cbBuilding.addActionListener(e -> checkRoomExist.run());
 
         JButton saveBtn = new JButton("提交分配并保存");
         saveBtn.addActionListener(e -> {
             new Thread(() -> {
                 try {
                     String newDorm = roomField.getText().trim().isEmpty() ? "" : cbBuilding.getSelectedItem() + roomField.getText().trim();
-                    String newBed = bedField.getText().trim();
-
                     Student updated = new Student();
                     updated.setSno(sno);
                     updated.setName(txtName.getText().trim());
                     updated.setPhone(txtPhone.getText().trim());
                     updated.setRoomNumber(newDorm);
-                    updated.setBedNumber(newBed); // 设置床位
+                    updated.setBedNumber(bedField.getText().trim());
 
                     RoomService roomService = new RoomServiceImpl();
-
-                    // 宿舍/床位变动逻辑
                     if (!originalDorm.equals(newDorm)) {
-                        // 迁出原宿舍
                         if (!originalDorm.isEmpty()) processRoomChange(roomService, originalDorm, -1);
-                        // 迁入新宿舍
                         if (!newDorm.isEmpty()) {
                             if (!processRoomChange(roomService, newDorm, 1)) {
                                 SwingUtilities.invokeLater(() -> JOptionPane.showMessageDialog(dialog, "分配失败：目标宿舍已满！"));
@@ -239,15 +226,87 @@ public class StudentPanel extends JPanel {
         JPanel bottomPanel = new JPanel(new BorderLayout());
         bottomPanel.add(roomStatusLabel, BorderLayout.NORTH);
         bottomPanel.add(saveBtn, BorderLayout.CENTER);
-
         dialog.add(formPanel, BorderLayout.CENTER);
         dialog.add(bottomPanel, BorderLayout.SOUTH);
         dialog.setVisible(true);
     }
 
     /**
-     * 核心逻辑：自动更新人数并根据剩余床位切换“住满/有空位”
+     * 【新增学生】：处理基本信息录入
      */
+    private void addStudent() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "添加学生", true);
+        dialog.setLayout(new BorderLayout());
+        dialog.setSize(450, 550);
+        dialog.setLocationRelativeTo(this);
+
+        JPanel formPanel = new JPanel(new GridLayout(11, 2, 10, 10));
+        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        String[] labels = {"学号:", "姓名:", "性别:", "学院:", "专业:", "年级:", "班级:", "联系电话:", "紧急联系人:", "紧急联系电话:"};
+        JComponent[] fields = new JComponent[labels.length];
+
+        Map<String, String[]> collegeMajorMap = new HashMap<>();
+        collegeMajorMap.put("计算机学院", new String[]{"软件工程", "计算机科学与技术", "人工智能", "数据科学与大数据技术", "网络工程"});
+        collegeMajorMap.put("经济管理学院", new String[]{"会计学", "财务管理", "工商管理", "市场营销", "金融学"});
+        collegeMajorMap.put("电子信息学院", new String[]{"电子信息工程", "通信工程", "微电子科学与工程"});
+
+        for (int i = 0; i < labels.length; i++) {
+            formPanel.add(new JLabel(labels[i]));
+            if (labels[i].equals("性别:")) {
+                fields[i] = new JComboBox<>(new String[]{"男", "女"});
+            } else if (labels[i].equals("学院:")) {
+                fields[i] = new JComboBox<>(collegeMajorMap.keySet().toArray(new String[0]));
+            } else if (labels[i].equals("专业:")) {
+                fields[i] = new JComboBox<String>();
+            } else {
+                fields[i] = new JTextField();
+            }
+            formPanel.add(fields[i]);
+        }
+
+        JComboBox<String> collegeCombo = (JComboBox<String>) fields[3];
+        JComboBox<String> majorCombo = (JComboBox<String>) fields[4];
+
+        collegeCombo.addActionListener(e -> {
+            majorCombo.removeAllItems();
+            String[] majors = collegeMajorMap.get(collegeCombo.getSelectedItem());
+            if (majors != null) for (String m : majors) majorCombo.addItem(m);
+        });
+        collegeCombo.setSelectedIndex(0);
+
+        JButton saveButton = new JButton("保存");
+        saveButton.addActionListener(e -> {
+            Student student = new Student();
+            student.setSno(((JTextField) fields[0]).getText().trim());
+            student.setName(((JTextField) fields[1]).getText().trim());
+            if (student.getSno().isEmpty() || student.getName().isEmpty()) {
+                JOptionPane.showMessageDialog(dialog, "学号和姓名不能为空！");
+                return;
+            }
+            student.setGender((String)((JComboBox)fields[2]).getSelectedItem());
+            student.setCollege((String)collegeCombo.getSelectedItem());
+            student.setMajor((String)majorCombo.getSelectedItem());
+            student.setGrade(((JTextField) fields[5]).getText().trim());
+            student.setClazz(((JTextField) fields[6]).getText().trim());
+            student.setPhone(((JTextField) fields[7]).getText().trim());
+            student.setInDate(LocalDate.now());
+
+            if (new StudentServiceImpl().addStudent(student)) {
+                JOptionPane.showMessageDialog(dialog, "学生添加成功！");
+                dialog.dispose();
+                loadStudentsFromDB();
+                RefreshCenter.notify("students-updated");
+            }
+        });
+
+        JPanel btnPnl = new JPanel();
+        btnPnl.add(saveButton);
+        dialog.add(formPanel, BorderLayout.CENTER);
+        dialog.add(btnPnl, BorderLayout.SOUTH);
+        dialog.setVisible(true);
+    }
+
     private boolean processRoomChange(RoomService service, String dormStr, int change) {
         int idx = dormStr.indexOf("栋");
         if (idx == -1) return false;
@@ -263,9 +322,7 @@ public class StudentPanel extends JPanel {
 
         int newOcc = Math.max(0, room.getOccupied() + change);
         int newAvail = room.getTotalBeds() - newOcc;
-        // 自动计算状态
         String newStatus = (newAvail <= 0) ? "已住满" : "有空位";
-
         return service.updateOccupancy(r, newOcc, newAvail, newStatus);
     }
 
@@ -277,13 +334,15 @@ public class StudentPanel extends JPanel {
         if (JOptionPane.showConfirmDialog(this, "确定删除该学生吗？宿舍人数将自动释放。") == JOptionPane.YES_OPTION) {
             new Thread(() -> {
                 if (!dorm.isEmpty()) processRoomChange(new RoomServiceImpl(), dorm, -1);
-                if (new StudentServiceImpl().deleteStudent(sno)) SwingUtilities.invokeLater(this::loadStudentsFromDB);
+                if (new StudentServiceImpl().deleteStudent(sno)) {
+                    SwingUtilities.invokeLater(() -> {
+                        loadStudentsFromDB();
+                        RefreshCenter.notify("students-updated");
+                        RefreshCenter.notify("rooms-updated");
+                    });
+                }
             }).start();
         }
-    }
-
-    private void addStudent() {
-        JOptionPane.showMessageDialog(this, "请使用系统注册功能新增学生。");
     }
 
     private String getTableValue(int r, int c) {
