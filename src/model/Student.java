@@ -17,13 +17,9 @@ public class Student {
     private String clazz;  // 班级
     private String phone;  // 电话
     private LocalDate inDate;  // 入学日期
-    
     // 宿舍信息
-    private String roomNumber;  // 宿舍号
-    private String building;  // 楼栋
-    private int bedNumber;  // 床位号
-    private LocalDate checkInDate;  // 入住日期
-    private boolean isMonitor;  // 是否为宿舍长
+    private String roomNumber;  // 宿舍号 带栋
+    private String bedNumber;  // 床位号
 
     // 无参构造器
     public Student() {}
@@ -122,37 +118,15 @@ public class Student {
         this.roomNumber = roomNumber;
     }
 
-    public String getBuilding() {
-        return building;
-    }
-
-    public void setBuilding(String building) {
-        this.building = building;
-    }
-
-    public int getBedNumber() {
+    public String getBedNumber() {
         return bedNumber;
     }
 
-    public void setBedNumber(int bedNumber) {
+    public void setBedNumber(String bedNumber) {
         this.bedNumber = bedNumber;
     }
 
-    public LocalDate getCheckInDate() {
-        return checkInDate;
-    }
 
-    public void setCheckInDate(LocalDate checkInDate) {
-        this.checkInDate = checkInDate;
-    }
-
-    public boolean isMonitor() {
-        return isMonitor;
-    }
-
-    public void setMonitor(boolean monitor) {
-        isMonitor = monitor;
-    }
 
     @Override
     public boolean equals(Object o) {
@@ -180,10 +154,7 @@ public class Student {
                 ", phone='" + phone + '\'' +
                 ", inDate=" + inDate +
                 ", roomNumber='" + roomNumber + '\'' +
-                ", building='" + building + '\'' +
                 ", bedNumber=" + bedNumber +
-                ", checkInDate=" + checkInDate +
-                ", isMonitor=" + isMonitor +
                 '}';
     }
 }

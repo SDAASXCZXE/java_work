@@ -156,69 +156,94 @@ public class StudentPanel extends JPanel {
      */
     private void loadStudentsFromDB() {
         tableModel.setRowCount(0);
+
         try {
-            service.StudentService studentService = new service.impl.StudentServiceImpl();
+            service.StudentService studentService =
+                    new service.impl.StudentServiceImpl();
             java.util.List<Student> students = studentService.listStudents();
 
-            // 如果 service 返回空，尝试回退到直接 JDBC 查询（帮助排查问题）
+            /* ================= 回退：直接 JDBC ================= */
             if (students == null || students.isEmpty()) {
-                // 直接使用 DBUtil 查询，作为回退
                 try (java.sql.Connection conn = util.DBUtil.getConnection()) {
-                    if (conn != null) {
-                        try (java.sql.Statement stmt = conn.createStatement();
-                             java.sql.ResultSet rs = stmt.executeQuery("SELECT * FROM student")) {
-                            while (rs.next()) {
-                                Object dorm = "";
-                                String building = null;
-                                String roomNo = null;
-                                try { building = rs.getString("building"); } catch (Exception ignored) {}
-                                try { roomNo = rs.getString("room_number"); } catch (Exception ignored) {}
-                                if (building != null && roomNo != null) dorm = building + roomNo;
-                                else if (roomNo != null) dorm = roomNo;
-
-                                Object bed = "";
-                                try { int b = rs.getInt("bed_number"); if (!rs.wasNull()) bed = String.valueOf(b); } catch (Exception ignored) {}
-                                Object inDate = null;
-                                try { java.sql.Date d = rs.getDate("in_date"); inDate = d == null ? "" : d; } catch (Exception ignored) { inDate = ""; }
-
-                                Object[] row = {
-                                        rs.getString("sno"),
-                                        rs.getString("name"),
-                                        rs.getString("gender"),
-                                        rs.getString("college"),
-                                        rs.getString("major"),
-                                        rs.getString("grade"),
-                                        rs.getString("class"),
-                                        dorm,
-                                        bed,
-                                        rs.getString("phone"),
-                                        inDate
-                                };
-                                tableModel.addRow(row);
-                            }
-                        }
-                        updateStudentCount();
+                    if (conn == null) {
+                        JOptionPane.showMessageDialog(this,
+                                "无法连接到数据库，请检查 DBUtil 配置。",
+                                "提示", JOptionPane.WARNING_MESSAGE);
                         return;
-                    } else {
-                        // 无法建立连接
-                        JOptionPane.showMessageDialog(this, "无法连接到数据库，请检查 DBUtil 配置。", "提示", JOptionPane.WARNING_MESSAGE);
                     }
+
+                    try (java.sql.Statement stmt = conn.createStatement();
+                         java.sql.ResultSet rs =
+                                 stmt.executeQuery("SELECT * FROM student")) {
+
+                        while (rs.next()) {
+
+                            // 宿舍号（building + room_number）
+                            String dorm = "";
+                            try {
+                                String building = rs.getString("building");
+                                String roomNo = rs.getString("room_number");
+                                if (building != null && roomNo != null) {
+                                    dorm = building + roomNo;
+                                } else if (roomNo != null) {
+                                    dorm = roomNo;
+                                }
+                            } catch (Exception ignored) {}
+
+                            // 床位号
+                            String bed = "";
+                            try {
+                                int b = rs.getInt("bed_number");
+                                if (!rs.wasNull()) bed = String.valueOf(b);
+                            } catch (Exception ignored) {}
+
+                            // 入住日期
+                            Object inDate = "";
+                            try {
+                                java.sql.Date d = rs.getDate("in_date");
+                                if (d != null) inDate = d;
+                            } catch (Exception ignored) {}
+
+                            Object[] row = {
+                                    rs.getString("sno"),
+                                    rs.getString("name"),
+                                    rs.getString("gender"),
+                                    rs.getString("college"),
+                                    rs.getString("major"),
+                                    rs.getString("grade"),
+                                    rs.getString("class"),
+                                    dorm,
+                                    bed,
+                                    rs.getString("phone"),
+                                    inDate
+                            };
+                            tableModel.addRow(row);
+                        }
+                    }
+
+                    updateStudentCount();
+                    return;
                 } catch (Exception ex) {
                     ex.printStackTrace();
-                    JOptionPane.showMessageDialog(this, "通过直接 JDBC 回退加载学生失败：" + ex.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(this,
+                            "通过直接 JDBC 回退加载学生失败：" + ex.getMessage(),
+                            "错误", JOptionPane.ERROR_MESSAGE);
                 }
             }
 
-            // 正常通过 service 加载
+            /* ================= 正常：Service ================= */
             for (Student s : students) {
-                Object dorm = "";
-                if (s.getBuilding() != null && s.getRoomNumber() != null) {
-                    dorm = s.getBuilding() + s.getRoomNumber();
-                } else if (s.getRoomNumber() != null) {
-                    dorm = s.getRoomNumber();
-                }
-                Object bed = s.getBedNumber() <= 0 ? "" : String.valueOf(s.getBedNumber());
-                Object inDate = s.getInDate() == null ? "" : java.sql.Date.valueOf(s.getInDate());
+
+                // 宿舍号：Student 里只有 roomNumber
+                String dorm = s.getRoomNumber() == null ? "" : s.getRoomNumber();
+
+                // 床位号：Student 里是 String
+                String bed = s.getBedNumber() == null ? "" : s.getBedNumber();
+
+                // 入住日期
+                Object inDate = s.getInDate() == null
+                        ? ""
+                        : java.sql.Date.valueOf(s.getInDate());
 
                 Object[] row = {
                         s.getSno(),
@@ -237,21 +262,22 @@ public class StudentPanel extends JPanel {
             }
 
             updateStudentCount();
+
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(this, "加载学生数据失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    "加载学生数据失败：" + e.getMessage(),
+                    "错误", JOptionPane.ERROR_MESSAGE);
         }
 
-        // 如果没有任何数据，显示占位提示行并给出友好提示
+        /* ================= 空数据提示 ================= */
         if (tableModel.getRowCount() == 0) {
-            // 清空并添加一行提示（保持列数一致）
             tableModel.setRowCount(0);
-            Object[] placeholder = {"", "暂无学生记录或无法连接数据库", "", "", "", "", "", "", "", "", ""};
-            tableModel.addRow(placeholder);
+            tableModel.addRow(new Object[]{
+                    "", "暂无学生记录或无法连接数据库",
+                    "", "", "", "", "", "", "", "", ""
+            });
             updateStudentCount();
-            JOptionPane.showMessageDialog(this,
-                    "当前未查询到学生记录。\n1) 请确认数据库连接配置（util/DBUtil.java）。\n2) 确认 student 表存在并包含数据。",
-                    "提示", JOptionPane.INFORMATION_MESSAGE);
         }
     }
 
@@ -617,15 +643,7 @@ public class StudentPanel extends JPanel {
                 }
                 if (!b.endsWith("栋") && b.length() == 1) b = b + "栋";
                 String rn = roomField.getText().trim();  // 房间号
-
-                // 设置宿舍信息（如果数据库表有这些字段的话）
-                // 注意：如果你的student表没有building和room_number字段，这些调用会失败！
-                // 你需要根据实际数据库表结构来决定是否设置这些字段
-
-                // 先注释掉可能不存在的字段，或者根据实际情况决定
-                // try { updated.setBuilding(b); } catch (Exception ignored) {}
-                // try { updated.setRoomNumber(rn); } catch (Exception ignored) {}
-
+                updated.setRoomNumber(b+rn);
                 // 入住日期
                 try {
                     Object inDateObj = tableModel.getValueAt(selectedRow, 10);
@@ -653,41 +671,47 @@ public class StudentPanel extends JPanel {
 
                 // 情况1: 没有选择宿舍（清空宿舍分配）
                 if (newRoomNumber.isEmpty()) {
+
                     // 如果原来有宿舍，需要从原宿舍迁出
                     if (!originalRoomNumber.isEmpty()) {
+
                         model.Room originalRoom = null;
                         for (model.Room r : roomService.findAll()) {
-                            if (r.getRoomNumber().equals(originalRoomNumber) &&
-                                    r.getBuilding().equals(originalBuilding)) {
+                            if (r.getRoomNumber().equals(originalRoomNumber)
+                                    && r.getBuilding().equals(originalBuilding)) {
                                 originalRoom = r;
                                 break;
                             }
                         }
 
                         if (originalRoom != null) {
-                            // 从原宿舍退宿
                             int newOccupied = originalRoom.getOccupied() - 1;
                             int newAvailable = originalRoom.getAvailableBeds() + 1;
+
                             newOccupied = Math.max(0, newOccupied);
                             newAvailable = Math.min(originalRoom.getTotalBeds(), newAvailable);
 
-                            String status = newOccupied >= originalRoom.getTotalBeds() ?
-                                    model.Room.RoomStatus.FULL.name() : model.Room.RoomStatus.AVAILABLE.name();
+                            String status = newOccupied >= originalRoom.getTotalBeds()
+                                    ? model.Room.RoomStatus.FULL.name()
+                                    : model.Room.RoomStatus.AVAILABLE.name();
 
-                            roomService.updateOccupancy(originalRoomNumber, newOccupied, newAvailable, status);
+                            roomService.updateOccupancy(
+                                    originalRoomNumber, newOccupied, newAvailable, status);
                         }
                     }
 
-                    // 更新学生信息（清空床位号）
-                    updated.setBedNumber(0);
+                    // 清空床位号（字符串）
+                    updated.setBedNumber("");
                 }
+
                 // 情况2: 选择了新宿舍
-                else if (!newRoomNumber.isEmpty()) {
-                    // 检查宿舍是否存在
+                else {
+
+                    // 查找目标宿舍
                     model.Room targetRoom = null;
                     for (model.Room r : roomService.findAll()) {
-                        if (r.getRoomNumber().equals(newRoomNumber) &&
-                                r.getBuilding().equals(newBuilding)) {
+                        if (r.getRoomNumber().equals(newRoomNumber)
+                                && r.getBuilding().equals(newBuilding)) {
                             targetRoom = r;
                             break;
                         }
@@ -707,27 +731,30 @@ public class StudentPanel extends JPanel {
                         return;
                     }
 
-                    // 分配床位
-                    int nextBed = targetRoom.getOccupied() + 1;
-                    if (nextBed > targetRoom.getTotalBeds()) {
+                    // ===== 核心修复：字符串 ↔ 数字 =====
+                    int nextBedInt = targetRoom.getOccupied() + 1;
+
+                    if (nextBedInt > targetRoom.getTotalBeds()) {
                         JOptionPane.showMessageDialog(dialog,
                                 "宿舍 " + newBuilding + newRoomNumber + " 床位已满！",
                                 "错误", JOptionPane.ERROR_MESSAGE);
                         return;
                     }
 
-                    updated.setBedNumber(nextBed);
+                    // 存回 Student：字符串
+                    updated.setBedNumber(toStr(nextBedInt));
 
-                    // 如果换宿舍了，需要从原宿舍迁出
-                    boolean isSameRoom = originalBuilding.equals(newBuilding) &&
-                            originalRoomNumber.equals(newRoomNumber);
+                    // ===== 是否换宿舍 =====
+                    boolean isSameRoom =
+                            originalBuilding.equals(newBuilding)
+                                    && originalRoomNumber.equals(newRoomNumber);
 
                     if (!isSameRoom && !originalRoomNumber.isEmpty()) {
-                        // 从原宿舍退宿
+
                         model.Room originalRoom = null;
                         for (model.Room r : roomService.findAll()) {
-                            if (r.getRoomNumber().equals(originalRoomNumber) &&
-                                    r.getBuilding().equals(originalBuilding)) {
+                            if (r.getRoomNumber().equals(originalRoomNumber)
+                                    && r.getBuilding().equals(originalBuilding)) {
                                 originalRoom = r;
                                 break;
                             }
@@ -736,26 +763,17 @@ public class StudentPanel extends JPanel {
                         if (originalRoom != null) {
                             int newOccupied = originalRoom.getOccupied() - 1;
                             int newAvailable = originalRoom.getAvailableBeds() + 1;
+
                             newOccupied = Math.max(0, newOccupied);
                             newAvailable = Math.min(originalRoom.getTotalBeds(), newAvailable);
 
-                            String status = newOccupied >= originalRoom.getTotalBeds() ?
-                                    model.Room.RoomStatus.FULL.name() : model.Room.RoomStatus.AVAILABLE.name();
+                            String status = newOccupied >= originalRoom.getTotalBeds()
+                                    ? model.Room.RoomStatus.FULL.name()
+                                    : model.Room.RoomStatus.AVAILABLE.name();
 
-                            roomService.updateOccupancy(originalRoomNumber, newOccupied, newAvailable, status);
+                            roomService.updateOccupancy(
+                                    originalRoomNumber, newOccupied, newAvailable, status);
                         }
-                    }
-
-                    // 入住新宿舍（如果换了宿舍或者第一次分配）
-                    if (!isSameRoom) {
-                        int newOccupied = targetRoom.getOccupied() + 1;
-                        int newAvailable = targetRoom.getAvailableBeds() - 1;
-                        newAvailable = Math.max(0, newAvailable);
-
-                        String status = newAvailable <= 0 ?
-                                model.Room.RoomStatus.FULL.name() : model.Room.RoomStatus.AVAILABLE.name();
-
-                        roomService.updateOccupancy(newRoomNumber, newOccupied, newAvailable, status);
                     }
                 }
 
@@ -763,26 +781,6 @@ public class StudentPanel extends JPanel {
                 service.StudentService studentService = new service.impl.StudentServiceImpl();
                 boolean studentOk = studentService.updateStudent(updated);
                 Student student = new Student();
-                try {
-
-                    if (studentOk) {
-                        // 成功处理
-                    } else {
-                        // 添加失败原因
-                        String errorDetail = "可能原因：\n";
-                        errorDetail += "1. 数据库连接失败\n";
-                        errorDetail += "2. 学号已存在\n";
-                        errorDetail += "3. 宿舍不存在或已满\n";
-                        errorDetail += "4. 数据格式错误";
-
-                        JOptionPane.showMessageDialog(dialog,
-                                "保存学生信息失败！\n" + errorDetail,
-                                "错误",
-                                JOptionPane.ERROR_MESSAGE);
-                    }
-                } catch (Exception ex) {
-                    // ...
-                }
 
                 if (studentOk) {
                     JOptionPane.showMessageDialog(dialog, "学生信息修改成功！", "成功", JOptionPane.INFORMATION_MESSAGE);
@@ -953,5 +951,27 @@ public class StudentPanel extends JPanel {
         searchField.setText("");
         studentTable.clearSelection();
     }
+    /**
+     * 字符串转 int（安全）
+     * 空串 / null / 非数字 → 返回 defaultValue
+     */
+    private int toInt(String value, int defaultValue) {
+        if (value == null) return defaultValue;
+        value = value.trim();
+        if (value.isEmpty()) return defaultValue;
+        try {
+            return Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
+    /**
+     * int 转字符串（统一出口）
+     */
+    private String toStr(int value) {
+        return value <= 0 ? "" : String.valueOf(value);
+    }
+
 }
 
