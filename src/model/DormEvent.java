@@ -120,8 +120,6 @@ public final class DormEvent {
     /* ===================== 权限工具 ===================== */
     public boolean canSee(String viewerSno, UserType viewerType, String viewerBuilding) {
         if (viewerType == UserType.ADMIN) return true;
-        if (viewerType == UserType.DORM_MANAGER)
-            return Objects.equals(building, viewerBuilding);
         return Objects.equals(sno, viewerSno); // 学生只能看自己
     }
 

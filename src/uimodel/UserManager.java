@@ -35,10 +35,6 @@ public class UserManager {
         users.add(new User("admin", "admin123", UserType.ADMIN,
                 null, "系统管理员", "13800000000", "admin@dorm.com"));
 
-        // 添加默认宿舍管理员账户
-        users.add(new User("manager", "manager123", UserType.DORM_MANAGER,
-                null, "宿舍管理员", "13811111111", "manager@dorm.com"));
-
         // 添加默认学生账户
         users.add(new User("student", "student123", UserType.STUDENT,
                 "20230001", "张三", "13822222222", "student@school.com"));
