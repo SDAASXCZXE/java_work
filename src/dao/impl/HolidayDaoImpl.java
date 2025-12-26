@@ -14,127 +14,79 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 假期登记 DAO 的 JDBC 实现
+ * 请假 DAO JDBC 实现
  */
 public class HolidayDaoImpl implements HolidayDao {
-    @Override
-    public List<Holiday> findAll() {
-        List<Holiday> list = new ArrayList<>();
-        String sql = "SELECT * FROM holiday WHERE deleted = 0 ORDER BY register_time DESC";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                String id = rs.getString("id");
-                String studentId = rs.getString("student_id");
-                String roomNumber = rs.getString("room_number");
-                String building = rs.getString("building");
-                String type = rs.getString("holiday_type");
-                LocalDate leaveDate = rs.getDate("leave_date") == null ? null : rs.getDate("leave_date").toLocalDate();
-                LocalDate plannedBack = rs.getDate("planned_back_date") == null ? null : rs.getDate("planned_back_date").toLocalDate();
-                LocalDate actualBack = rs.getDate("actual_back_date") == null ? null : rs.getDate("actual_back_date").toLocalDate();
-                String destination = rs.getString("destination");
-                String contact = rs.getString("contact_person");
-                String phone = rs.getString("contact_phone");
-                Timestamp regTs = rs.getTimestamp("register_time");
-                Timestamp updTs = rs.getTimestamp("update_time");
-                String status = rs.getString("status");
-                String remarks = rs.getString("remarks");
-
-                Holiday.HolidayType htype = "back".equalsIgnoreCase(type) ? Holiday.HolidayType.BACK : Holiday.HolidayType.LEAVE;
-                Holiday.HolidayStatus hstatus = Holiday.HolidayStatus.PENDING;
-                if ("approved".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.APPROVED;
-                else if ("rejected".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.REJECTED;
-                else if ("completed".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.COMPLETED;
-                else if ("overdue".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.OVERDUE;
-
-                Holiday h = new Holiday(id, studentId, roomNumber, building, htype, leaveDate, plannedBack);
-                if (actualBack != null) h.setActualBackDate(actualBack);
-                h.setDestination(destination);
-                h.setContactPerson(contact);
-                h.setContactPhone(phone);
-                h.setRemarks(remarks);
-                if (regTs != null) {
-                    // try reflect register_time/update_time if needed (Holiday class stores them internally)
-                }
-                // reflect status and deleted via methods
-                switch (hstatus) {
-                    case APPROVED:
-                        h.approve();
-                        break;
-                    case REJECTED:
-                        h.reject();
-                        break;
-                    case COMPLETED:
-                        h.complete(actualBack);
-                        break;
-                    case OVERDUE:
-                        h.markAsOverdue();
-                        break;
-                    default:
-                        // keep pending
-                        break;
-                }
-
-                list.add(h);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return list;
-    }
 
     @Override
     public List<Holiday> findByStudentId(String studentId) {
         List<Holiday> list = new ArrayList<>();
-        String sql = "SELECT * FROM holiday WHERE deleted = 0 AND student_id = ? ORDER BY register_time DESC";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        String sql = "SELECT * FROM holiday WHERE student_id = ? AND deleted = 0 ORDER BY apply_time DESC";
+        try (Connection conn = DBUtil.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, studentId);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     String id = rs.getString("id");
-                    String roomNumber = rs.getString("room_number");
+                    String sid = rs.getString("student_id");
+                    String roomNo = rs.getString("room_number");
                     String building = rs.getString("building");
-                    String type = rs.getString("holiday_type");
-                    LocalDate leaveDate = rs.getDate("leave_date") == null ? null : rs.getDate("leave_date").toLocalDate();
-                    LocalDate plannedBack = rs.getDate("planned_back_date") == null ? null : rs.getDate("planned_back_date").toLocalDate();
-                    LocalDate actualBack = rs.getDate("actual_back_date") == null ? null : rs.getDate("actual_back_date").toLocalDate();
-                    String destination = rs.getString("destination");
-                    String contact = rs.getString("contact_person");
-                    String phone = rs.getString("contact_phone");
-                    String status = rs.getString("status");
-                    String remarks = rs.getString("remarks");
 
-                    Holiday.HolidayType htype = "back".equalsIgnoreCase(type) ? Holiday.HolidayType.BACK : Holiday.HolidayType.LEAVE;
-                    Holiday.HolidayStatus hstatus = Holiday.HolidayStatus.PENDING;
-                    if ("approved".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.APPROVED;
-                    else if ("rejected".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.REJECTED;
-                    else if ("completed".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.COMPLETED;
-                    else if ("overdue".equalsIgnoreCase(status)) hstatus = Holiday.HolidayStatus.OVERDUE;
+                    LocalDate start = null, end = null;
+                    try { java.sql.Date d1 = rs.getDate("start_date"); if (d1 != null) start = d1.toLocalDate(); } catch (Exception ignored) {}
+                    try { java.sql.Date d2 = rs.getDate("end_date"); if (d2 != null) end = d2.toLocalDate(); } catch (Exception ignored) {}
 
-                    Holiday h = new Holiday(id, studentId, roomNumber, building, htype, leaveDate, plannedBack);
-                    if (actualBack != null) h.setActualBackDate(actualBack);
-                    h.setDestination(destination);
-                    h.setContactPerson(contact);
-                    h.setContactPhone(phone);
-                    h.setRemarks(remarks);
-                    switch (hstatus) {
-                        case APPROVED:
-                            h.approve();
-                            break;
-                        case REJECTED:
-                            h.reject();
-                            break;
-                        case COMPLETED:
-                            h.complete(actualBack);
-                            break;
-                        case OVERDUE:
-                            h.markAsOverdue();
-                            break;
-                        default:
-                            break;
+                    LocalDateTime registerTime = null;
+                    LocalDateTime updateTime = null;
+                    try { Timestamp t = rs.getTimestamp("apply_time"); if (t != null) registerTime = t.toLocalDateTime(); } catch (Exception ignored) {}
+                    try { Timestamp t2 = rs.getTimestamp("update_time"); if (t2 != null) updateTime = t2.toLocalDateTime(); } catch (Exception ignored) {}
+
+                    // status 字段（字符串 code 或 name）
+                    String statusStr = null;
+                    try { statusStr = rs.getString("status"); } catch (Exception ignored) {}
+
+                    // remarks
+                    String remarks = null;
+                    try { remarks = rs.getString("remarks"); } catch (Exception ignored) {}
+
+                    // destination / contact
+                    String dest = null, contact = null, contactPhone = null;
+                    try { dest = rs.getString("destination"); } catch (Exception ignored) {}
+                    try { contact = rs.getString("contact_person"); } catch (Exception ignored) {}
+                    try { contactPhone = rs.getString("contact_phone"); } catch (Exception ignored) {}
+
+                    // 默认假设为离校类型（若需支持类型字段可在表中扩展）
+                    Holiday.HolidayType ht = Holiday.HolidayType.LEAVE;
+                    Holiday h = new Holiday(id, sid, roomNo, building, ht, start, end);
+
+                    // 反射设置 registerTime/updateTime
+                    try {
+                        java.lang.reflect.Field f = Holiday.class.getDeclaredField("registerTime");
+                        f.setAccessible(true);
+                        if (registerTime != null) f.set(h, registerTime);
+                    } catch (Exception ignored) {}
+                    try {
+                        java.lang.reflect.Field f = Holiday.class.getDeclaredField("updateTime");
+                        f.setAccessible(true);
+                        if (updateTime != null) f.set(h, updateTime);
+                    } catch (Exception ignored) {}
+
+                    // 设置 status 枚举
+                    if (statusStr != null) {
+                        try {
+                            java.lang.reflect.Field f = Holiday.class.getDeclaredField("status");
+                            f.setAccessible(true);
+                            for (Holiday.HolidayStatus hs : Holiday.HolidayStatus.values()) {
+                                if (hs.getCode().equalsIgnoreCase(statusStr) || hs.name().equalsIgnoreCase(statusStr)) { f.set(h, hs); break; }
+                            }
+                        } catch (Exception ignored) {}
                     }
+
+                    // 设置可选字段通过 setter
+                    try { if (dest != null) h.setDestination(dest); } catch (Exception ignored) {}
+                    try { if (contact != null) h.setContactPerson(contact); } catch (Exception ignored) {}
+                    try { if (contactPhone != null) h.setContactPhone(contactPhone); } catch (Exception ignored) {}
+                    try { if (remarks != null) h.setRemarks(remarks); } catch (Exception ignored) {}
+
                     list.add(h);
                 }
             }
@@ -145,107 +97,26 @@ public class HolidayDaoImpl implements HolidayDao {
     }
 
     @Override
-    public List<Holiday> findByStatus(Holiday.HolidayStatus status) {
-        List<Holiday> list = new ArrayList<>();
-        String sql = "SELECT * FROM holiday WHERE deleted = 0 AND status = ? ORDER BY register_time DESC";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, status.getCode());
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    String id = rs.getString("id");
-                    String studentId = rs.getString("student_id");
-                    String roomNumber = rs.getString("room_number");
-                    String building = rs.getString("building");
-                    String type = rs.getString("holiday_type");
-                    LocalDate leaveDate = rs.getDate("leave_date") == null ? null : rs.getDate("leave_date").toLocalDate();
-                    LocalDate plannedBack = rs.getDate("planned_back_date") == null ? null : rs.getDate("planned_back_date").toLocalDate();
-                    LocalDate actualBack = rs.getDate("actual_back_date") == null ? null : rs.getDate("actual_back_date").toLocalDate();
-                    String destination = rs.getString("destination");
-                    String contact = rs.getString("contact_person");
-                    String phone = rs.getString("contact_phone");
-                    String remarks = rs.getString("remarks");
+    public boolean addHoliday(Holiday h) {
+        String sql = "INSERT INTO holiday (id, student_id, room_number, building, start_date, end_date, actual_back_date, destination, contact_person, contact_phone, status, apply_time, update_time, remarks, deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try (Connection conn = DBUtil.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, h.getId());
+            ps.setString(2, h.getStudentId());
+            ps.setString(3, h.getRoomNumber());
+            ps.setString(4, h.getBuilding());
+            ps.setDate(5, h.getLeaveDate() != null ? java.sql.Date.valueOf(h.getLeaveDate()) : null);
+            ps.setDate(6, h.getPlannedBackDate() != null ? java.sql.Date.valueOf(h.getPlannedBackDate()) : null);
+            ps.setDate(7, h.getActualBackDate().isPresent() ? java.sql.Date.valueOf(h.getActualBackDate().get()) : null);
+            ps.setString(8, h.getDestination().orElse(null));
+            ps.setString(9, h.getContactPerson().orElse(null));
+            ps.setString(10, h.getContactPhone().orElse(null));
+            ps.setString(11, h.getStatus() != null ? h.getStatus().getCode() : Holiday.HolidayStatus.PENDING.getCode());
 
-                    Holiday.HolidayType htype = "back".equalsIgnoreCase(type) ? Holiday.HolidayType.BACK : Holiday.HolidayType.LEAVE;
-
-                    Holiday h = new Holiday(id, studentId, roomNumber, building, htype, leaveDate, plannedBack);
-                    if (actualBack != null) h.setActualBackDate(actualBack);
-                    h.setDestination(destination);
-                    h.setContactPerson(contact);
-                    h.setContactPhone(phone);
-                    h.setRemarks(remarks);
-                    switch (status) {
-                        case APPROVED:
-                            h.approve();
-                            break;
-                        case REJECTED:
-                            h.reject();
-                            break;
-                        case COMPLETED:
-                            h.complete(actualBack);
-                            break;
-                        case OVERDUE:
-                            h.markAsOverdue();
-                            break;
-                        default:
-                            break;
-                    }
-                    list.add(h);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return list;
-    }
-
-    @Override
-    public boolean insert(Holiday holiday) {
-        String sql = "INSERT INTO holiday (id, student_id, room_number, building, holiday_type, leave_date, planned_back_date, actual_back_date, destination, contact_person, contact_phone, register_time, update_time, status, remarks, deleted) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, holiday.getId());
-            ps.setString(2, holiday.getStudentId());
-            ps.setString(3, holiday.getRoomNumber());
-            ps.setString(4, holiday.getBuilding());
-            ps.setString(5, holiday.getHolidayType().getCode());
-            ps.setDate(6, holiday.getLeaveDate() == null ? null : java.sql.Date.valueOf(holiday.getLeaveDate()));
-            ps.setDate(7, holiday.getPlannedBackDate() == null ? null : java.sql.Date.valueOf(holiday.getPlannedBackDate()));
-            ps.setDate(8, null);
-            ps.setString(9, holiday.getDestination().orElse(null));
-            ps.setString(10, holiday.getContactPerson().orElse(null));
-            ps.setString(11, holiday.getContactPhone().orElse(null));
-            ps.setTimestamp(12, Timestamp.valueOf(LocalDateTime.now()));
-            ps.setTimestamp(13, Timestamp.valueOf(LocalDateTime.now()));
-            ps.setString(14, holiday.getStatus().getCode());
-            ps.setString(15, holiday.getRemarks().orElse(null));
-
-            int c = ps.executeUpdate();
-            return c > 0;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return false;
-        }
-    }
-
-    @Override
-    public boolean update(Holiday holiday) {
-        String sql = "UPDATE holiday SET room_number=?, building=?, holiday_type=?, leave_date=?, planned_back_date=?, actual_back_date=?, destination=?, contact_person=?, contact_phone=?, update_time=?, status=?, remarks=? WHERE id=?";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
-            ps.setString(1, holiday.getRoomNumber());
-            ps.setString(2, holiday.getBuilding());
-            ps.setString(3, holiday.getHolidayType().getCode());
-            ps.setDate(4, holiday.getLeaveDate() == null ? null : java.sql.Date.valueOf(holiday.getLeaveDate()));
-            ps.setDate(5, holiday.getPlannedBackDate() == null ? null : java.sql.Date.valueOf(holiday.getPlannedBackDate()));
-            ps.setDate(6, holiday.getActualBackDate().orElse(null) == null ? null : java.sql.Date.valueOf(holiday.getActualBackDate().get()));
-            ps.setString(7, holiday.getDestination().orElse(null));
-            ps.setString(8, holiday.getContactPerson().orElse(null));
-            ps.setString(9, holiday.getContactPhone().orElse(null));
-            ps.setTimestamp(10, Timestamp.valueOf(LocalDateTime.now()));
-            ps.setString(11, holiday.getStatus().getCode());
-            ps.setString(12, holiday.getRemarks().orElse(null));
-            ps.setString(13, holiday.getId());
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            ps.setTimestamp(12, Timestamp.valueOf(now));
+            ps.setTimestamp(13, Timestamp.valueOf(now));
+            ps.setString(14, h.getRemarks().orElse(null));
+            ps.setInt(15, h.isDeleted() ? 1 : 0);
 
             int c = ps.executeUpdate();
             return c > 0;
@@ -257,12 +128,11 @@ public class HolidayDaoImpl implements HolidayDao {
 
     @Override
     public boolean deleteById(String id) {
-        String sql = "UPDATE holiday SET deleted = 1 WHERE id = ?";
-        try (Connection conn = DBUtil.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+        String sql = "DELETE FROM holiday WHERE id = ?";
+        try (Connection conn = DBUtil.getConnection(); PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, id);
-            int c = ps.executeUpdate();
-            return c > 0;
+            int r = ps.executeUpdate();
+            return r > 0;
         } catch (Exception e) {
             e.printStackTrace();
             return false;

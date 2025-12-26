@@ -7,41 +7,22 @@ import service.HolidayService;
 
 import java.util.List;
 
-/**
- * 假期 Service 实现
- */
 public class HolidayServiceImpl implements HolidayService {
-
-    private HolidayDao dao = new HolidayDaoImpl();
-
-    @Override
-    public List<Holiday> listAll() {
-        return dao.findAll();
-    }
+    private final HolidayDao holidayDao = new HolidayDaoImpl();
 
     @Override
     public List<Holiday> listByStudent(String studentId) {
-        return dao.findByStudentId(studentId);
+        try { return holidayDao.findByStudentId(studentId); } catch (Exception e) { e.printStackTrace(); return java.util.Collections.emptyList(); }
     }
 
     @Override
-    public List<Holiday> listByStatus(Holiday.HolidayStatus status) {
-        return dao.findByStatus(status);
+    public boolean addHoliday(Holiday h) {
+        try { return holidayDao.addHoliday(h); } catch (Exception e) { e.printStackTrace(); return false; }
     }
 
     @Override
-    public boolean add(Holiday holiday) {
-        return dao.insert(holiday);
-    }
-
-    @Override
-    public boolean update(Holiday holiday) {
-        return dao.update(holiday);
-    }
-
-    @Override
-    public boolean removeById(String id) {
-        return dao.deleteById(id);
+    public boolean deleteById(String id) {
+        try { return holidayDao.deleteById(id); } catch (Exception e) { e.printStackTrace(); return false; }
     }
 }
 
