@@ -9,4 +9,5 @@ public interface StudentService {
     boolean deleteStudent(String id);
     boolean updateStudent(Student student);
     boolean existsBySno(String sno);
+    Student getStudentBySno(String sno);
 }

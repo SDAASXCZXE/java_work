@@ -191,4 +191,35 @@ public class StudentDaoImpl implements StudentDao {
         }
         return false;
     }
+
+    @Override
+    public Student findBySno(String sno) {
+        String sql = "SELECT * FROM student WHERE sno = ?";
+        try (Connection conn = DBUtil.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setString(1, sno);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Student s = new Student();
+                    s.setSno(rs.getString("sno"));
+                    s.setName(rs.getString("name"));
+                    s.setGender(rs.getString("gender"));
+                    s.setCollege(rs.getString("college"));
+                    s.setMajor(rs.getString("major"));
+                    s.setGrade(rs.getString("grade"));
+                    s.setClazz(rs.getString("class"));
+                    s.setPhone(rs.getString("phone"));
+                    java.sql.Date inDate = null;
+                    try { inDate = rs.getDate("in_date"); } catch (Exception ignored) {}
+                    if (inDate != null) s.setInDate(inDate.toLocalDate());
+                    try { if (hasColumn(rs, "dorm_no")) s.setRoomNumber(rs.getString("dorm_no")); } catch (Exception ignored) {}
+                    try { if (hasColumn(rs, "bed_no")) s.setBedNumber(rs.getString("bed_no")); } catch (Exception ignored) {}
+                    return s;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
 }

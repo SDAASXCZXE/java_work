@@ -126,6 +126,29 @@ public class Student {
         this.bedNumber = bedNumber;
     }
 
+    /**
+     * 解析并返回楼栋部分，例如："A栋101" 返回 "A栋"；"A-101" 返回 "A"；若无法解析则返回空字符串或原值
+     */
+    public String getBuilding() {
+        if (roomNumber == null || roomNumber.trim().isEmpty()) return "";
+        String r = roomNumber.trim();
+        // 常见带“栋”的格式，如 "A栋101"
+        int idx = r.indexOf('栋');
+        if (idx > 0) return r.substring(0, idx + 1);
+        // 常见含 '-' 或 '_' 分隔，如 "A-101" 或 "A_101"
+        for (char sep : new char[]{'-', '_', ' '}) {
+            int p = r.indexOf(sep);
+            if (p > 0) return r.substring(0, p);
+        }
+        // 否则提取前导非数字字符作为楼栋
+        int firstDigit = -1;
+        for (int i = 0; i < r.length(); i++) {
+            if (Character.isDigit(r.charAt(i))) { firstDigit = i; break; }
+        }
+        if (firstDigit > 0) return r.substring(0, firstDigit);
+        // 若无法区分，则返回原 roomNumber（方便调用方识别）
+        return r;
+    }
 
 
     @Override

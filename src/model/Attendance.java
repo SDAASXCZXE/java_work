@@ -89,6 +89,21 @@ public class Attendance {
         this.deleted = false;
     }
 
+    // 便捷构造：只传学号、宿舍号、楼栋，默认进入（IN）和正常状态
+    public Attendance(String studentId, String roomNumber, String building) {
+        this.id = generateId();
+        this.studentId = studentId;
+        this.roomNumber = roomNumber;
+        this.building = building;
+        this.attendanceDate = LocalDate.now();
+        this.attendanceTime = LocalTime.now();
+        this.direction = AttendanceDirection.IN;
+        this.status = AttendanceStatus.NORMAL;
+        this.createTime = LocalDateTime.now();
+        this.updateTime = LocalDateTime.now();
+        this.deleted = false;
+    }
+
     // Getter方法
     public String getId() {
         return id;
@@ -145,6 +160,12 @@ public class Attendance {
     // Setter方法
     public void setAttendanceTime(LocalTime attendanceTime) {
         this.attendanceTime = attendanceTime;
+        this.updateTime = LocalDateTime.now();
+    }
+
+    // 新增：设置考勤日期
+    public void setAttendanceDate(LocalDate date) {
+        this.attendanceDate = date;
         this.updateTime = LocalDateTime.now();
     }
 
@@ -293,3 +314,4 @@ public class Attendance {
                 '}';
     }
 }
+

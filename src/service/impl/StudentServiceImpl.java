@@ -53,4 +53,15 @@ public class StudentServiceImpl implements StudentService {
         return studentDao.existsBySno(sno);
     }
 
+    @Override
+    public Student getStudentBySno(String sno) {
+        try {
+            return studentDao.findBySno(sno);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+
 }

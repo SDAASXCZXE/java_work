@@ -21,4 +21,7 @@ public interface StudentDao {
 
     /** 检查学号是否存在 */
     boolean existsBySno(String sno);
+
+    /** 根据学号查找学生，找不到返回 null */
+    Student findBySno(String sno);
 }
