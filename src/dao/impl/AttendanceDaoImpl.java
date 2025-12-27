@@ -15,13 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 考勤 DAO 实现 - 物理删除版
+ * 考勤 DAO 实现
  */
 public class AttendanceDaoImpl implements AttendanceDao {
 
-    /**
-     * 将结果集映射为对象 - 使用提供的 8 参数构造方法
-     */
     private Attendance mapResultSet(ResultSet rs) throws SQLException {
         String id = rs.getString("id");
         String studentId = rs.getString("student_id");
@@ -37,11 +34,9 @@ public class AttendanceDaoImpl implements AttendanceDao {
         String directionStr = rs.getString("direction");
         String statusStr = rs.getString("status");
 
-        // 转换方向枚举
         Attendance.AttendanceDirection direction = "in".equalsIgnoreCase(directionStr) ?
                 Attendance.AttendanceDirection.IN : Attendance.AttendanceDirection.OUT;
 
-        // 转换状态枚举
         Attendance.AttendanceStatus status = Attendance.AttendanceStatus.NORMAL;
         if (statusStr != null) {
             status = switch (statusStr.toLowerCase()) {
@@ -53,14 +48,13 @@ public class AttendanceDaoImpl implements AttendanceDao {
             };
         }
 
-        // 调用你提供的构造函数：(id, studentId, roomNumber, building, date, time, direction, status)
         return new Attendance(id, studentId, roomNumber, building, date, time, direction, status);
     }
 
     @Override
     public List<Attendance> findAll() {
         List<Attendance> list = new ArrayList<>();
-        // 物理删除模式，不需要判断 deleted
+        // 物理删除模式
         String sql = "SELECT * FROM attendance ORDER BY attendance_date DESC, attendance_time DESC";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql);
@@ -106,7 +100,6 @@ public class AttendanceDaoImpl implements AttendanceDao {
 
     @Override
     public boolean insert(Attendance attendance) {
-        // 即使表中有 deleted 字段，物理删除模式下插入时设为 0
         String sql = "INSERT INTO attendance (id, student_id, room_number, building, attendance_date, " +
                 "attendance_time, direction, status, create_time, update_time, deleted) " +
                 "VALUES (?,?,?,?,?,?,?,?,?,?,0)";
@@ -128,7 +121,6 @@ public class AttendanceDaoImpl implements AttendanceDao {
 
     @Override
     public boolean deleteById(String id) {
-        // 彻底物理删除记录
         String sql = "DELETE FROM attendance WHERE id = ?";
         try (Connection conn = DBUtil.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {

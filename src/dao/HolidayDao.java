@@ -1,6 +1,7 @@
 package dao;
 
 import model.Holiday;
+
 import java.util.List;
 
 public interface HolidayDao {

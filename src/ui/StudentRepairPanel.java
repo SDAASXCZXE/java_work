@@ -1,16 +1,16 @@
 package ui;
 
+import model.Repair;
 import model.Student;
-import model.Repair; // 确保你有这个实体类
 import service.RepairService;
 import service.impl.RepairServiceImpl;
+
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 /**

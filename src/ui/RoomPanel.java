@@ -1,15 +1,16 @@
 package ui;
+
+import model.Room;
+import service.RoomService;
+import service.impl.RoomServiceImpl;
+import util.DBUtil;
+
 import javax.swing.*;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.List;
-
-import model.Room;
-import service.RoomService;
-import service.impl.RoomServiceImpl;
-import util.DBUtil;
 
 /**
  * 宿舍管理面板

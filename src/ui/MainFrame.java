@@ -1,8 +1,9 @@
 package ui;
 
+import model.Student;
 import uimodel.User;
 import uimodel.UserType;
-import model.Student; // 引入 Student 实体类
+
 import javax.swing.*;
 import javax.swing.plaf.nimbus.NimbusLookAndFeel;
 import java.awt.*;

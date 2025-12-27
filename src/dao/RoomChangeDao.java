@@ -1,6 +1,7 @@
 package dao;
 
 import model.RoomChange;
+
 import java.util.List;
 
 public interface RoomChangeDao {

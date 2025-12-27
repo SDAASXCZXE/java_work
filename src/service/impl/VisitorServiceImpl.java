@@ -5,7 +5,10 @@ import dao.impl.VisitorDaoImpl;
 import model.Visitor;
 import service.VisitorService;
 import util.DBUtil;
-import java.sql.*;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.util.List;
 

@@ -1,14 +1,15 @@
 package ui;
 
-import uimodel.UserType;
-import uimodel.UserManager;
-import javax.swing.*;
-import java.awt.*;
+import model.Student;
 import service.StudentService;
 import service.impl.StudentServiceImpl;
-import model.Student;
-import java.time.LocalDate;
+import uimodel.UserManager;
+import uimodel.UserType;
 import util.RefreshCenter;
+
+import javax.swing.*;
+import java.awt.*;
+import java.time.LocalDate;
 
 /**
  * 用户注册对话框
