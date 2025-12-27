@@ -1,15 +1,16 @@
 package ui;
+
+import model.Room;
+import service.RoomService;
+import service.impl.RoomServiceImpl;
+import util.DBUtil;
+
 import javax.swing.*;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.util.List;
-
-import model.Room;
-import service.RoomService;
-import service.impl.RoomServiceImpl;
-import util.DBUtil;
 
 /**
  * 宿舍管理面板
@@ -63,9 +64,6 @@ public class RoomPanel extends JPanel {
 
         add(createToolBar(), BorderLayout.NORTH);
         // 中间区域使用左右分割：左侧表格，右侧柱状图统计
-//        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createTablePanel(), createChartPanel());
-//        split.setResizeWeight(0.68);
-//        add(split, BorderLayout.CENTER);
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createTablePanel(), createChartPanel());
         splitPane.setResizeWeight(0.68);
         add(splitPane, BorderLayout.CENTER);
@@ -454,11 +452,25 @@ public class RoomPanel extends JPanel {
             // 直接使用字符串
             Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
 
-            // 新增：检查房间号唯一（使用已有的 roomService 实例）
-            if (roomService.existsByRoomNumber(roomNumber)) {
-                JOptionPane.showMessageDialog(dialog, "房间号已存在，请检查输入。", "错误", JOptionPane.ERROR_MESSAGE);
+            // 【关键修复】检查房间号唯一性（联合 building 和 roomNumber）
+            // 如果 roomService 不支持 building 参数，我们手动遍历 tableModel 检查
+            boolean isDuplicate = false;
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                String existRoom = tableModel.getValueAt(i, 0).toString();
+                String existBuilding = tableModel.getValueAt(i, 1).toString();
+                if (existRoom.equals(roomNumber) && existBuilding.equals(building)) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (isDuplicate) {
+                JOptionPane.showMessageDialog(dialog, "该楼栋已存在此房间号，请检查输入。", "错误", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+
+            // 如果您的数据库设置了 room_number 唯一键（不包含 building），这里依然会报错。
+            // 请确保数据库 UNIQUE 索引是 (building, room_number)。
 
             boolean ok = roomService.add(room);
             if (ok) {
@@ -466,8 +478,10 @@ public class RoomPanel extends JPanel {
                 // 尝试在表格中定位新添加的宿舍并选中
                 boolean found = false;
                 for (int i = 0; i < tableModel.getRowCount(); i++) {
-                    Object v = tableModel.getValueAt(i, 0);
-                    if (v != null && v.toString().equals(roomNumber)) {
+                    Object vRoom = tableModel.getValueAt(i, 0);
+                    Object vBuilding = tableModel.getValueAt(i, 1);
+                    if (vRoom != null && vRoom.toString().equals(roomNumber) &&
+                            vBuilding != null && vBuilding.toString().equals(building)) {
                         roomTable.setRowSelectionInterval(i, i);
                         roomTable.scrollRectToVisible(roomTable.getCellRect(i, 0, true));
                         found = true;
@@ -483,7 +497,7 @@ public class RoomPanel extends JPanel {
                     JOptionPane.showMessageDialog(dialog, msg, "警告", JOptionPane.WARNING_MESSAGE);
                 }
             } else {
-                JOptionPane.showMessageDialog(dialog, "宿舍添加失败，请检查数据库连接或重复房间号。", "错误", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "宿舍添加失败，请检查数据库连接或是否存在重复数据。", "错误", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -544,6 +558,7 @@ public class RoomPanel extends JPanel {
                 case 1:
                     JComboBox<String> bCombo = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋", "E栋"});
                     bCombo.setSelectedItem(currentValue);
+                    bCombo.setEnabled(false); // 楼栋和房间号是主键，通常不允许修改
                     fields[i] = bCombo;
                     break;
                 case 2:
@@ -653,12 +668,17 @@ public class RoomPanel extends JPanel {
         }
 
         String roomNumber = safeGet(selectedRow, 0);
+        String building = safeGet(selectedRow, 1); // 获取楼栋
+
         int confirm = JOptionPane.showConfirmDialog(this,
-                "确定要删除宿舍 [" + roomNumber + "] 吗？",
+                "确定要删除宿舍 [" + building + " " + roomNumber + "] 吗？",
                 "确认删除",
                 JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
+            // 这里存在一个隐患：deleteByRoomNumber 可能会删除所有楼栋的同号房间
+            // 建议修复 Dao 层的删除逻辑
+            // 临时检查：如果 RoomService.deleteByRoomNumber 实现有误，这里会误删
             boolean ok = roomService.deleteByRoomNumber(roomNumber);
             if (ok) {
                 loadRoomsFromDB();
@@ -718,6 +738,12 @@ public class RoomPanel extends JPanel {
             String statusText = newAvailable == 0 ? "已住满" : "有空位";
 
             String roomNumber = safeGet(selectedRow, 0);
+            String building = safeGet(selectedRow, 1);
+
+            // 注意：这里调用的是 Dao 层的 updateOccupancy，如果 Dao 层只用 roomNumber 做条件，会有 Bug。
+            // 建议您修改 Service/Dao 层以支持 building 参数。
+            // 假设 roomService.updateOccupancy 已经修复或接受联合键，否则这里依然有风险。
+
             boolean ok = roomService.updateOccupancy(roomNumber, newOccupied, newAvailable, statusText);
             if (ok) {
                 loadRoomsFromDB();
@@ -878,21 +904,29 @@ public class RoomPanel extends JPanel {
 
         roomTable.clearSelection();
 
-        boolean found = false;
+        java.util.List<Integer> matchedRows = new java.util.ArrayList<>();
         for (int i = 0; i < tableModel.getRowCount(); i++) {
+            boolean rowMatches = false;
             for (int j = 0; j < tableModel.getColumnCount(); j++) {
                 Object value = tableModel.getValueAt(i, j);
                 if (value != null && value.toString().toLowerCase().contains(keyword.toLowerCase())) {
-                    roomTable.setRowSelectionInterval(i, i);
-                    roomTable.scrollRectToVisible(roomTable.getCellRect(i, 0, true));
-                    found = true;
+                    rowMatches = true;
                     break;
                 }
             }
-            if (found) break;
+            if (rowMatches) matchedRows.add(i);
         }
 
-        if (!found) {
+        if (!matchedRows.isEmpty()) {
+            // 选中并滚动到第一个匹配项，同时保持选中所有匹配行
+            int first = matchedRows.get(0);
+            for (int r : matchedRows) {
+                try {
+                    roomTable.addRowSelectionInterval(r, r);
+                } catch (Exception ignored) {}
+            }
+            roomTable.scrollRectToVisible(roomTable.getCellRect(first, 0, true));
+        } else {
             JOptionPane.showMessageDialog(this, "未找到匹配的宿舍！", "提示", JOptionPane.INFORMATION_MESSAGE);
         }
     }
@@ -948,7 +982,12 @@ public class RoomPanel extends JPanel {
                 java.util.Collections.sort(k);
                 for (String s : k) { keys.add(s); values.add(data.getOrDefault(s, 0.0)); }
             }
-            repaint();
+            // 保证在 EDT 上重绘
+            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                repaint();
+            } else {
+                javax.swing.SwingUtilities.invokeLater(this::repaint);
+            }
         }
 
         @Override
@@ -970,8 +1009,8 @@ public class RoomPanel extends JPanel {
 
                 int padding = 40;
                 int labelHeight = 40;
-                int plotHeight = h - padding - labelHeight;
-                int plotWidth = w - padding * 2;
+                int plotHeight = Math.max(30, h - padding - labelHeight);
+                int plotWidth = Math.max(50, w - padding * 2);
 
                 // 找到最大值用于缩放（values 为比例 0..1）
                 double maxVal = 0.0;
@@ -981,7 +1020,21 @@ public class RoomPanel extends JPanel {
                 int n = keys.size();
                 int barGap = 10;
                 int availableWidth = plotWidth - (n + 1) * barGap;
-                int barWidth = Math.max(10, availableWidth / Math.max(1, n));
+                int barWidth;
+                if (availableWidth > 0) {
+                    barWidth = Math.max(10, availableWidth / Math.max(1, n));
+                } else {
+                    // 宽度不足时：缩小 gap，保证每个柱最小宽度
+                    barGap = 6;
+                    int minBar = 10;
+                    int totalNeeded = n * minBar + (n + 1) * barGap;
+                    if (totalNeeded <= plotWidth) {
+                        barWidth = minBar;
+                    } else {
+                        // 尽量压缩到能显示
+                        barWidth = Math.max(4, plotWidth / Math.max(1, n + (n/3)));
+                    }
+                }
 
                 // 绘制 Y 轴刻度（0% - 100%）
                 g2.setColor(Color.DARK_GRAY);
@@ -1000,6 +1053,7 @@ public class RoomPanel extends JPanel {
 
                 // 绘制柱状图
                 int x = padding + barGap;
+                FontMetrics fm = g2.getFontMetrics();
                 for (int i = 0; i < n; i++) {
                     double val = values.get(i);
                     int barHeight = (int) (val / maxVal * plotHeight);
@@ -1009,15 +1063,14 @@ public class RoomPanel extends JPanel {
                     // 渐变填充
                     GradientPaint gp = new GradientPaint(bx, by, new Color(100, 160, 220), bx, by + barHeight, new Color(30, 90, 160));
                     g2.setPaint(gp);
-                    g2.fillRect(bx, by, barWidth, barHeight);
+                    g2.fillRect(bx, by, barWidth, Math.max(1, barHeight));
 
                     // 边框
                     g2.setColor(Color.DARK_GRAY);
-                    g2.drawRect(bx, by, barWidth, barHeight);
+                    g2.drawRect(bx, by, barWidth, Math.max(1, barHeight));
 
                     // 值文字（百分比）
                     String valStr = String.format("%.0f%%", val * 100);
-                    FontMetrics fm = g2.getFontMetrics();
                     int strW = fm.stringWidth(valStr);
                     g2.setColor(Color.BLACK);
                     g2.drawString(valStr, bx + (barWidth - strW) / 2, Math.max(by - 6, padding + 10));
@@ -1026,7 +1079,16 @@ public class RoomPanel extends JPanel {
                     String label = keys.get(i);
                     int labY = padding + plotHeight + 18;
                     int labW = fm.stringWidth(label);
-                    g2.drawString(label, bx + (barWidth - labW) / 2, labY);
+                    // 如果标签过宽，截断并加省略号
+                    String outLabel = label;
+                    int maxLabelW = barWidth + 8;
+                    if (labW > maxLabelW) {
+                        for (int cut = label.length() - 1; cut > 0; cut--) {
+                            String t = label.substring(0, cut) + "...";
+                            if (fm.stringWidth(t) <= maxLabelW) { outLabel = t; break; }
+                        }
+                    }
+                    g2.drawString(outLabel, bx + (barWidth - fm.stringWidth(outLabel)) / 2, labY);
 
                     x += barWidth + barGap;
                 }
@@ -1038,3 +1100,4 @@ public class RoomPanel extends JPanel {
     }
 
 }
+

@@ -1,6 +1,13 @@
+/*
+ * 文件：StudentDashboardPanel.java
+ * 说明：学生端主面板，作为学生登录后的仪表盘，包含多个功能页签（个人资料、报修、请假、假期、退宿/换宿等）。
+ * 注意：仅添加文件级注释，不修改现有逻辑代码。
+ */
+
 package ui;
 
 import model.Student;
+
 import javax.swing.*;
 import java.awt.*;
 

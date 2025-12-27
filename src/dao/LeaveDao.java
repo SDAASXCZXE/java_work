@@ -1,6 +1,7 @@
 package dao;
 
 import model.LeaveRequest;
+
 import java.util.List;
 
 public interface LeaveDao {

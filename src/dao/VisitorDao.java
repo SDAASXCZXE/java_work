@@ -1,6 +1,7 @@
 package dao;
 
 import model.Visitor;
+
 import java.util.List;
 
 public interface VisitorDao {

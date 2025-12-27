@@ -5,12 +5,7 @@ import model.Repair;
 import util.DBUtil;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Timestamp;
+import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -78,7 +73,6 @@ public class RepairDaoImpl implements RepairDao {
                     }
 
                     Repair r = new Repair(id, sid, roomNo, building, type, desc, imgs);
-                    // 反射或直接设置可选字段
                     try { if (submitTime != null) {
                         java.lang.reflect.Field f = Repair.class.getDeclaredField("submitTime");
                         f.setAccessible(true);

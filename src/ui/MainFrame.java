@@ -1,8 +1,9 @@
 package ui;
 
+import model.Student;
 import uimodel.User;
 import uimodel.UserType;
-import model.Student; // 引入 Student 实体类
+
 import javax.swing.*;
 import javax.swing.plaf.nimbus.NimbusLookAndFeel;
 import java.awt.*;
@@ -133,8 +134,6 @@ public class MainFrame extends JFrame {
 
         logoutItem.addActionListener(e -> {
             dispose();
-            // 此处应调回 LoginFrame
-            // new LoginFrame().setVisible(true);
         });
         exitItem.addActionListener(e -> confirmAndExit());
 

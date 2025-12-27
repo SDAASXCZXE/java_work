@@ -1,16 +1,23 @@
+/*
+ * 文件：StudentPanel.java
+ * 说明：学生管理面板（管理员端），用于查看、添加、编辑学生记录等操作。
+ * 注意：仅插入注释，不更改业务逻辑。
+ */
+
 package ui;
 
-import java.time.LocalDate;
-import service.*;
-import model.Student;
 import model.Room;
-import service.impl.StudentServiceImpl;
+import model.Student;
+import service.RoomService;
 import service.impl.RoomServiceImpl;
+import service.impl.StudentServiceImpl;
 import util.RefreshCenter;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

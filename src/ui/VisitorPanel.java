@@ -1,19 +1,25 @@
+/*
+ * 文件：VisitorPanel.java
+ * 说明：访客管理面板（学生/管理员均可查看），包含访客登记、列表显示和删除功能。
+ * 注意：仅添加注释，不改动业务逻辑代码。
+ */
+
 package ui;
+
+import model.Visitor;
+import service.VisitorService;
+import service.impl.VisitorServiceImpl;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import model.Visitor;
-import service.VisitorService;
-import service.impl.VisitorServiceImpl;
 
 /**
  * 访客记录管理面板 - 完整功能版
@@ -291,3 +297,4 @@ public class VisitorPanel extends JPanel {
         JOptionPane.showMessageDialog(this, "导出 Excel 功能正在集成...");
     }
 }
+

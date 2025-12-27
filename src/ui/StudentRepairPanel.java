@@ -1,16 +1,22 @@
+/*
+ * 文件：StudentRepairPanel.java
+ * 说明：学生端故障报修面板，允许学生提交报修、查看报修历史与删除申请（物理删除或逻辑删除以实现为准）。
+ * 注意：仅添加注释，不改动现有实现。
+ */
+
 package ui;
 
+import model.Repair;
 import model.Student;
-import model.Repair; // 确保你有这个实体类
 import service.RepairService;
 import service.impl.RepairServiceImpl;
+
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 
 /**

@@ -1,3 +1,9 @@
+/*
+ * 文件：DBUtil.java
+ * 说明：数据库工具类，提供获取 JDBC 连接的方法。
+ * 用法：DAO 层使用 DBUtil.getConnection() 获取数据库连接（注意配置 URL/USER/PASSWORD）。
+ * 注意：本文件仅添加注释，不修改原有数据库配置信息或逻辑。
+ */
 
 package util;
 

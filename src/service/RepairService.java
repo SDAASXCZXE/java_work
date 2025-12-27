@@ -1,7 +1,6 @@
 package service;
 
 import model.Repair;
-import java.util.List;
 
 /**
  * 报修业务接口（学生端、管理员端共用）

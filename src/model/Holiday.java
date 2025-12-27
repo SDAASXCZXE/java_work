@@ -216,55 +216,10 @@ public class Holiday {
         return this.status == HolidayStatus.PENDING;
     }
 
-    public boolean isApproved() {
-        return this.status == HolidayStatus.APPROVED;
-    }
 
-    public boolean isRejected() {
-        return this.status == HolidayStatus.REJECTED;
-    }
-
-    public boolean isCompleted() {
-        return this.status == HolidayStatus.COMPLETED;
-    }
-
-    public boolean isOverdue() {
-        return this.status == HolidayStatus.OVERDUE;
-    }
-
-    public boolean isBackRegistered() {
-        return this.actualBackDate != null;
-    }
-
-    // 检查是否已逾期
-    public boolean checkOverdue(LocalDate currentDate) {
-        if (this.status == HolidayStatus.APPROVED && this.plannedBackDate != null) {
-            if (currentDate.isAfter(this.plannedBackDate) && this.actualBackDate == null) {
-                markAsOverdue();
-                return true;
-            }
-        }
-        return false;
-    }
-
-    // 工厂方法
     public static String generateId() {
         String timestamp = LocalDateTime.now().toString().replaceAll("[-:T]", "").substring(0, 14);
         return "H" + timestamp;
-    }
-
-    public static Holiday createLeaveRegistration(String studentId, String roomNumber, String building,
-                                                 LocalDate leaveDate, LocalDate plannedBackDate) {
-        String id = generateId();
-        return new Holiday(id, studentId, roomNumber, building, HolidayType.LEAVE, leaveDate, plannedBackDate);
-    }
-
-    public static Holiday createBackRegistration(String studentId, String roomNumber, String building,
-                                                LocalDate leaveDate, LocalDate plannedBackDate, LocalDate actualBackDate) {
-        String id = generateId();
-        Holiday holiday = new Holiday(id, studentId, roomNumber, building, HolidayType.BACK, leaveDate, plannedBackDate);
-        holiday.setActualBackDate(actualBackDate);
-        return holiday;
     }
 
     @Override

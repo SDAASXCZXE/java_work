@@ -137,18 +137,6 @@ public class Attendance {
         return status;
     }
 
-    public LocalDateTime getCreateTime() {
-        return createTime;
-    }
-
-    public LocalDateTime getUpdateTime() {
-        return updateTime;
-    }
-
-    public Optional<String> getDeviceId() {
-        return Optional.ofNullable(deviceId);
-    }
-
     public Optional<String> getRemarks() {
         return Optional.ofNullable(remarks);
     }
@@ -169,20 +157,13 @@ public class Attendance {
         this.updateTime = LocalDateTime.now();
     }
 
-    public void setDirection(AttendanceDirection direction) {
-        this.direction = direction;
-        this.updateTime = LocalDateTime.now();
-    }
 
     public void setStatus(AttendanceStatus status) {
         this.status = status;
         this.updateTime = LocalDateTime.now();
     }
 
-    public void setDeviceId(String deviceId) {
-        this.deviceId = deviceId;
-        this.updateTime = LocalDateTime.now();
-    }
+
 
     public void setRemarks(String remarks) {
         this.remarks = remarks;
@@ -200,53 +181,10 @@ public class Attendance {
         this.updateTime = LocalDateTime.now();
     }
 
-    public void markAsAbsent() {
-        this.status = AttendanceStatus.ABSENT;
-        this.updateTime = LocalDateTime.now();
-    }
-
-    public void markAsLeave() {
-        this.status = AttendanceStatus.LEAVE;
-        this.updateTime = LocalDateTime.now();
-    }
-
-    public void markAsNormal() {
-        this.status = AttendanceStatus.NORMAL;
-        this.updateTime = LocalDateTime.now();
-    }
-
-    public void markAsOverdue() {
-        this.status = AttendanceStatus.OVERDUE;
-        this.updateTime = LocalDateTime.now();
-    }
-
     // 辅助方法
-    public boolean isNormal() {
-        return this.status == AttendanceStatus.NORMAL;
-    }
-
-    public boolean isLate() {
-        return this.status == AttendanceStatus.LATE;
-    }
-
-    public boolean isAbsent() {
-        return this.status == AttendanceStatus.ABSENT;
-    }
-
-    public boolean isLeave() {
-        return this.status == AttendanceStatus.LEAVE;
-    }
-
-    public boolean isOverdue() {
-        return this.status == AttendanceStatus.OVERDUE;
-    }
 
     public boolean isEntry() {
         return this.direction == AttendanceDirection.IN;
-    }
-
-    public boolean isExit() {
-        return this.direction == AttendanceDirection.OUT;
     }
 
     // 检查是否迟到
@@ -266,26 +204,6 @@ public class Attendance {
         return "A" + timestamp;
     }
 
-    public static Attendance createEntryRecord(String studentId, String roomNumber, String building) {
-        String id = generateId();
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
-        return new Attendance(id, studentId, roomNumber, building, today, now, AttendanceDirection.IN, AttendanceStatus.NORMAL);
-    }
-
-    public static Attendance createExitRecord(String studentId, String roomNumber, String building) {
-        String id = generateId();
-        LocalDate today = LocalDate.now();
-        LocalTime now = LocalTime.now();
-        return new Attendance(id, studentId, roomNumber, building, today, now, AttendanceDirection.OUT, AttendanceStatus.NORMAL);
-    }
-
-    public static Attendance createCustomRecord(String studentId, String roomNumber, String building,
-                                               LocalDate date, LocalTime time, AttendanceDirection direction,
-                                               AttendanceStatus status) {
-        String id = generateId();
-        return new Attendance(id, studentId, roomNumber, building, date, time, direction, status);
-    }
 
     @Override
     public boolean equals(Object o) {
