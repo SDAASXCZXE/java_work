@@ -33,8 +33,26 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
-    public boolean deleteByRoomNumber(String roomNumber) {
-        return dao.deleteByRoomNumber(roomNumber);
+    public boolean deleteByBuildingAndRoom(String building, String roomNumber) {
+        try {
+            // 直接调用 DAO 中的实现
+            java.lang.reflect.Method m = dao.getClass().getMethod("deleteByBuildingAndRoom", String.class, String.class);
+            Object res = m.invoke(dao, building, roomNumber);
+            return res instanceof Boolean && (Boolean) res;
+        } catch (NoSuchMethodException nsme) {
+            // 兼容：如果 DAO 没有该方法，退回到按 roomNumber 删除（不推荐）
+            try {
+                java.lang.reflect.Method m2 = dao.getClass().getMethod("deleteByRoomNumber", String.class);
+                Object res = m2.invoke(dao, roomNumber);
+                return res instanceof Boolean && (Boolean) res;
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                return false;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 
     @Override
@@ -43,25 +61,22 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
+    public boolean existsByRoomNumber(String roomNumber) {
+        return dao.existsByRoomNumber(roomNumber);
+    }
+
+    @Override
     public boolean updateOccupancy(String building, String roomNumber, int occupied, int available, String status) {
-        // 委托给 DAO 中支持 building 的实现（RoomDaoImpl::updateOccupancy(building, roomNumber, ...)）
         try {
-            // RoomDaoImpl 已提供 updateOccupancy(building, roomNumber, ...)
             java.lang.reflect.Method m = dao.getClass().getMethod("updateOccupancy", String.class, String.class, int.class, int.class, String.class);
             Object res = m.invoke(dao, building, roomNumber, occupied, available, status);
             return res instanceof Boolean && (Boolean) res;
         } catch (NoSuchMethodException nsme) {
-            // 如果 DAO 没有重载方法，退回到原先的按 roomNumber 更新（不推荐）
             return dao.updateOccupancy(roomNumber, occupied, available, status);
         } catch (Exception e) {
             e.printStackTrace();
             return false;
         }
-    }
-
-    // 新增：检查房间是否存在，UI 使用以避免重复添加
-    public boolean existsByRoomNumber(String roomNumber) {
-        return dao.existsByRoomNumber(roomNumber);
     }
 
     @Override

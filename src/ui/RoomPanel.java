@@ -705,7 +705,8 @@ public class RoomPanel extends JPanel {
             // 这里存在一个隐患：deleteByRoomNumber 可能会删除所有楼栋的同号房间
             // 建议修复 Dao 层的删除逻辑
             // 临时检查：如果 RoomService.deleteByRoomNumber 实现有误，这里会误删
-            boolean ok = roomService.deleteByRoomNumber(roomNumber);
+            // 使用按楼栋+房间号删除，确保只删除选中的那一间宿舍
+            boolean ok = roomService.deleteByBuildingAndRoom(building, roomNumber);
             if (ok) {
                 loadRoomsFromDB();
                 JOptionPane.showMessageDialog(this, "删除成功！");

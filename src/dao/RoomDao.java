@@ -26,11 +26,12 @@ public interface RoomDao {
     boolean update(Room room);
 
     /**
-     * 根据房间号删除宿舍记录
+     * 根据楼栋与房间号联合删除宿舍记录，避免仅按房间号误删其他楼栋的同号房间
+     * @param building 楼栋，如 "A栋"
      * @param roomNumber 房间号
      * @return 成功返回 true，失败返回 false
      */
-    boolean deleteByRoomNumber(String roomNumber);
+    boolean deleteByBuildingAndRoom(String building, String roomNumber);
 
     /**
      * 更新入住/退宿后的已住人数、空余床位与状态
