@@ -35,6 +35,18 @@ public class RoomPanel extends JPanel {
     // 服务层，用于数据库持久化操作
     private RoomService roomService = new RoomServiceImpl();
 
+    // 新增：图表面板引用（柱状图）
+    private ChartPanel chartPanel;
+
+    // 新增：将中间分割面板提升为字段，便于在工具栏中控制右侧图表显示/隐藏
+    private JSplitPane splitPane;
+
+    // 新增：保存最近一次的楼栋占用率数据，供弹窗查看使用
+    private java.util.Map<String, Double> lastOccupancyRate = new java.util.HashMap<>();
+
+    // 新增：chartWrapper 保存右侧包装面板，便于切换
+    private JPanel chartWrapper;
+
     public RoomPanel() {
         initUI();
         loadRoomsFromDB();
@@ -50,7 +62,13 @@ public class RoomPanel extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
 
         add(createToolBar(), BorderLayout.NORTH);
-        add(createTablePanel(), BorderLayout.CENTER);
+        // 中间区域使用左右分割：左侧表格，右侧柱状图统计
+//        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createTablePanel(), createChartPanel());
+//        split.setResizeWeight(0.68);
+//        add(split, BorderLayout.CENTER);
+        splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createTablePanel(), createChartPanel());
+        splitPane.setResizeWeight(0.68);
+        add(splitPane, BorderLayout.CENTER);
         add(createInfoPanel(), BorderLayout.SOUTH);
     }
 
@@ -71,6 +89,44 @@ public class RoomPanel extends JPanel {
             button.addActionListener(this::handleButtonClick);
             toolBar.add(button);
         }
+
+        // 新增：图标按钮用于切换右侧柱状图的显示/隐藏
+        Icon chartIcon = UIManager.getIcon("FileView.fileIcon");
+        JButton chartToggleBtn = new JButton(chartIcon);
+        chartToggleBtn.setToolTipText("切换显示/隐藏宿舍统计图");
+        chartToggleBtn.setPreferredSize(new Dimension(28, 28));
+        chartToggleBtn.addActionListener(e -> {
+            if (splitPane == null) return;
+            Component right = splitPane.getRightComponent();
+            // 如果当前右侧是我们的 chartWrapper，则隐藏它（替换为占位空面板）
+            if (right == chartWrapper) {
+                JPanel placeholder = new JPanel();
+                splitPane.setRightComponent(placeholder);
+                splitPane.setDividerLocation(getWidth());
+            } else {
+                // 恢复右侧为 chartWrapper
+                splitPane.setRightComponent(chartWrapper);
+                splitPane.setDividerLocation((int)(getWidth() * 0.68));
+            }
+            splitPane.revalidate();
+            splitPane.repaint();
+        });
+        toolBar.add(chartToggleBtn);
+
+        // 新增：单独的查看统计图按钮，弹出独立对话框显示最新图表数据
+        JButton viewChartBtn = new JButton("查看统计图");
+        viewChartBtn.setBackground(new Color(60, 160, 100));
+        viewChartBtn.setForeground(Color.WHITE);
+        viewChartBtn.addActionListener(e -> {
+            JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "宿舍占用率 - 单独窗口", true);
+            d.setSize(700, 480);
+            d.setLocationRelativeTo(this);
+            ChartPanel cp = new ChartPanel();
+            cp.setData(lastOccupancyRate);
+            d.add(cp);
+            d.setVisible(true);
+        });
+        toolBar.add(viewChartBtn);
 
         toolBar.add(Box.createHorizontalStrut(20));
         toolBar.add(new JLabel("宿舍楼:"));
@@ -195,8 +251,15 @@ public class RoomPanel extends JPanel {
                 }
                 // 若连接可用但列表为空，则表示当前无宿舍记录
                 updateRoomCount();
+                // 更新图表为空数据
+                if (chartPanel != null) chartPanel.setData(java.util.Collections.emptyMap());
+                lastOccupancyRate.clear();
                 return;
             }
+
+            // 为统计收集每栋楼的床位总数和已住人数
+            java.util.Map<String, Integer> totalBedsPerBuilding = new java.util.HashMap<>();
+            java.util.Map<String, Integer> occupiedPerBuilding = new java.util.HashMap<>();
 
             for (Room r : rooms) {
                 Object[] row = {
@@ -214,8 +277,28 @@ public class RoomPanel extends JPanel {
                         r.getRemarks()
                 };
                 tableModel.addRow(row);
+
+                // 统计
+                String b = r.getBuilding() == null ? "未知" : r.getBuilding();
+                totalBedsPerBuilding.put(b, totalBedsPerBuilding.getOrDefault(b, 0) + r.getTotalBeds());
+                occupiedPerBuilding.put(b, occupiedPerBuilding.getOrDefault(b, 0) + r.getOccupied());
             }
             updateRoomCount();
+
+            // 计算入住率（occupied / total）
+            java.util.Map<String, Double> occupancyRate = new java.util.HashMap<>();
+            for (String b : totalBedsPerBuilding.keySet()) {
+                int total = totalBedsPerBuilding.getOrDefault(b, 0);
+                int occ = occupiedPerBuilding.getOrDefault(b, 0);
+                double rate = total == 0 ? 0.0 : ((double) occ) / total;
+                occupancyRate.put(b, rate);
+            }
+            // 更新图表
+            if (chartPanel != null) chartPanel.setData(occupancyRate);
+            // 保存为最近一次统计数据，供弹窗查看
+            lastOccupancyRate.clear();
+            lastOccupancyRate.putAll(occupancyRate);
+
         } catch (Exception e) {
             e.printStackTrace();
             JOptionPane.showMessageDialog(this, "加载宿舍数据失败：" + e.getMessage(), "错误", JOptionPane.ERROR_MESSAGE);
@@ -833,5 +916,125 @@ public class RoomPanel extends JPanel {
         try { return Integer.parseInt(s); } catch (Exception e) { return def; }
     }
 
-}
+    /**
+     * 创建统计图表面板（右侧）
+     */
+    private JPanel createChartPanel() {
+        chartWrapper = new JPanel(new BorderLayout());
+        chartWrapper.setBorder(BorderFactory.createTitledBorder("宿舍占用率（按楼栋）"));
+        chartPanel = new ChartPanel();
+        chartWrapper.add(chartPanel, BorderLayout.CENTER);
 
+        JPanel bottom = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        JButton refreshChart = new JButton("刷新统计");
+        refreshChart.addActionListener(e -> loadRoomsFromDB());
+        bottom.add(refreshChart);
+        chartWrapper.add(bottom, BorderLayout.SOUTH);
+        return chartWrapper;
+    }
+
+    /**
+     * 内部类：简单柱状图绘制组件（使用 Java2D）
+     */
+    private static class ChartPanel extends JPanel {
+        private java.util.List<String> keys = new java.util.ArrayList<>();
+        private java.util.List<Double> values = new java.util.ArrayList<>();
+
+        public void setData(java.util.Map<String, Double> data) {
+            keys.clear(); values.clear();
+            if (data != null && !data.isEmpty()) {
+                // 按键排序，保证显示顺序稳定
+                java.util.List<String> k = new java.util.ArrayList<>(data.keySet());
+                java.util.Collections.sort(k);
+                for (String s : k) { keys.add(s); values.add(data.getOrDefault(s, 0.0)); }
+            }
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            try {
+                int w = getWidth();
+                int h = getHeight();
+                // 背景
+                g2.setColor(getBackground());
+                g2.fillRect(0, 0, w, h);
+
+                if (keys.isEmpty()) {
+                    g2.setColor(Color.GRAY);
+                    g2.drawString("无统计数据", 10, 20);
+                    return;
+                }
+
+                int padding = 40;
+                int labelHeight = 40;
+                int plotHeight = h - padding - labelHeight;
+                int plotWidth = w - padding * 2;
+
+                // 找到最大值用于缩放（values 为比例 0..1）
+                double maxVal = 0.0;
+                for (double v : values) if (v > maxVal) maxVal = v;
+                if (maxVal < 0.01) maxVal = 0.01; // 避免除零
+
+                int n = keys.size();
+                int barGap = 10;
+                int availableWidth = plotWidth - (n + 1) * barGap;
+                int barWidth = Math.max(10, availableWidth / Math.max(1, n));
+
+                // 绘制 Y 轴刻度（0% - 100%）
+                g2.setColor(Color.DARK_GRAY);
+                g2.drawLine(padding, padding, padding, padding + plotHeight);
+                g2.drawLine(padding, padding + plotHeight, padding + plotWidth, padding + plotHeight);
+
+                g2.setFont(new Font("宋体", Font.PLAIN, 11));
+                for (int i = 0; i <= 5; i++) {
+                    int y = padding + (int) (plotHeight * (1.0 - i / 5.0));
+                    String label = (i * 20) + "%";
+                    g2.drawString(label, 4, y + 4);
+                    g2.setColor(new Color(220, 220, 220));
+                    g2.drawLine(padding + 1, y, padding + plotWidth, y);
+                    g2.setColor(Color.DARK_GRAY);
+                }
+
+                // 绘制柱状图
+                int x = padding + barGap;
+                for (int i = 0; i < n; i++) {
+                    double val = values.get(i);
+                    int barHeight = (int) (val / maxVal * plotHeight);
+                    int bx = x;
+                    int by = padding + plotHeight - barHeight;
+
+                    // 渐变填充
+                    GradientPaint gp = new GradientPaint(bx, by, new Color(100, 160, 220), bx, by + barHeight, new Color(30, 90, 160));
+                    g2.setPaint(gp);
+                    g2.fillRect(bx, by, barWidth, barHeight);
+
+                    // 边框
+                    g2.setColor(Color.DARK_GRAY);
+                    g2.drawRect(bx, by, barWidth, barHeight);
+
+                    // 值文字（百分比）
+                    String valStr = String.format("%.0f%%", val * 100);
+                    FontMetrics fm = g2.getFontMetrics();
+                    int strW = fm.stringWidth(valStr);
+                    g2.setColor(Color.BLACK);
+                    g2.drawString(valStr, bx + (barWidth - strW) / 2, Math.max(by - 6, padding + 10));
+
+                    // X 轴标签（楼栋名）
+                    String label = keys.get(i);
+                    int labY = padding + plotHeight + 18;
+                    int labW = fm.stringWidth(label);
+                    g2.drawString(label, bx + (barWidth - labW) / 2, labY);
+
+                    x += barWidth + barGap;
+                }
+
+            } finally {
+                g2.dispose();
+            }
+        }
+    }
+
+}
