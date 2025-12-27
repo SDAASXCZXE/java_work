@@ -13,6 +13,7 @@ import java.awt.*;
 
 public class StudentInfoPanel extends JPanel {
     private Student student;
+    private JPanel contentPanel;
 
     public StudentInfoPanel(Student student) {
         this.student = student;
@@ -21,15 +22,28 @@ public class StudentInfoPanel extends JPanel {
 
     private void initUI() {
         setLayout(new BorderLayout(10,10));
-        JPanel p = new JPanel(new GridLayout(6,2,8,8));
-        p.setBorder(BorderFactory.createEmptyBorder(12,12,12,12));
+        contentPanel = new JPanel(new GridLayout(6,2,8,8));
+        contentPanel.setBorder(BorderFactory.createEmptyBorder(12,12,12,12));
 
-        p.add(new JLabel("学号:")); p.add(new JLabel(student.getSno()));
-        p.add(new JLabel("姓名:")); p.add(new JLabel(student.getName()));
-        p.add(new JLabel("班级:")); p.add(new JLabel(student.getClazz()));
-        p.add(new JLabel("宿舍:")); p.add(new JLabel(student.getBuilding() + " " + student.getRoomNumber()));
-        p.add(new JLabel("联系电话:")); p.add(new JLabel(student.getPhone()));
+        rebuildContent();
+        add(contentPanel, BorderLayout.NORTH);
+    }
 
-        add(p, BorderLayout.NORTH);
+    private void rebuildContent() {
+        contentPanel.removeAll();
+        contentPanel.add(new JLabel("学号:")); contentPanel.add(new JLabel(student.getSno()));
+        contentPanel.add(new JLabel("姓名:")); contentPanel.add(new JLabel(student.getName()));
+        contentPanel.add(new JLabel("班级:")); contentPanel.add(new JLabel(student.getClazz()));
+        contentPanel.add(new JLabel("宿舍:")); contentPanel.add(new JLabel(student.getBuilding() + " " + student.getRoomNumber()));
+        contentPanel.add(new JLabel("联系电话:")); contentPanel.add(new JLabel(student.getPhone()));
+        contentPanel.revalidate();
+        contentPanel.repaint();
+    }
+
+    // 外部调用：当后台学生信息发生变更时，由 StudentDashboardPanel 调用来更新显示
+    public void updateStudent(Student updated) {
+        if (updated == null) return;
+        this.student = updated;
+        rebuildContent();
     }
 }

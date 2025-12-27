@@ -178,5 +178,11 @@ public class StudentLeavePanel extends JPanel {
             if (ok){ JOptionPane.showMessageDialog(this,"删除成功"); loadData(); } else { JOptionPane.showMessageDialog(this,"删除失败","错误",JOptionPane.ERROR_MESSAGE); }
         }
     }
-}
 
+    // 外部调用：更新 student 对象并刷新数据
+    public void updateStudent(Student updated) {
+        if (updated == null) return;
+        this.student = updated;
+        loadData();
+    }
+}

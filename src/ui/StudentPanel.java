@@ -13,6 +13,9 @@ import service.impl.RoomServiceImpl;
 import service.impl.StudentServiceImpl;
 import util.RefreshCenter;
 
+import uimodel.UserManager;
+import uimodel.UserType;
+
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -336,12 +339,46 @@ public class StudentPanel extends JPanel {
             student.setPhone(((JTextField) fields[7]).getText().trim());
             student.setInDate(LocalDate.now());
 
-            if (new StudentServiceImpl().addStudent(student)) {
-                JOptionPane.showMessageDialog(dialog, "学生添加成功！");
-                dialog.dispose();
-                loadStudentsFromDB();
-                RefreshCenter.notify("students-updated");
+            // ---- 新增：在前端用户文件中也创建一个学生账号（学号作为用户名，默认密码 123456） ----
+            UserManager um = UserManager.getInstance();
+            String username = student.getSno();
+            String defaultPassword = "123456";
+
+            // 检查是否已存在相同学号或用户名
+            if (um.getUserByUsername(username) != null || um.existsStudentId(student.getSno())) {
+                JOptionPane.showMessageDialog(dialog, "无法创建学生账号：用户名或学号已存在，请检查后重试。", "创建账号失败", JOptionPane.ERROR_MESSAGE);
+                return;
             }
+
+            boolean registered = um.registerUser(username, defaultPassword, UserType.STUDENT,
+                    student.getSno(), student.getName(), student.getPhone(), "");
+
+            if (!registered) {
+                JOptionPane.showMessageDialog(dialog, "为学生创建前端账号失败，请稍后重试。", "失败", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 继续写入学生表；若写入失败则回滚 users.dat 中的用户
+            StudentServiceImpl sSvc = new StudentServiceImpl();
+            boolean dbOk = false;
+            try {
+                dbOk = sSvc.addStudent(student);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+
+            if (!dbOk) {
+                // 回滚前端用户
+                um.removeUserByUsername(username);
+                JOptionPane.showMessageDialog(dialog, "将学生信息保存到数据库失败，已回滚创建的前端账号。", "数据库写入失败", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // 成功
+            JOptionPane.showMessageDialog(dialog, "学生添加成功！已为该学生创建前端账号：用户名=" + username + " 密码=" + defaultPassword);
+            dialog.dispose();
+            loadStudentsFromDB();
+            RefreshCenter.notify("students-updated");
         });
 
         JPanel btnPnl = new JPanel();
