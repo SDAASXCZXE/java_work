@@ -904,21 +904,29 @@ public class RoomPanel extends JPanel {
 
         roomTable.clearSelection();
 
-        boolean found = false;
+        java.util.List<Integer> matchedRows = new java.util.ArrayList<>();
         for (int i = 0; i < tableModel.getRowCount(); i++) {
+            boolean rowMatches = false;
             for (int j = 0; j < tableModel.getColumnCount(); j++) {
                 Object value = tableModel.getValueAt(i, j);
                 if (value != null && value.toString().toLowerCase().contains(keyword.toLowerCase())) {
-                    roomTable.setRowSelectionInterval(i, i);
-                    roomTable.scrollRectToVisible(roomTable.getCellRect(i, 0, true));
-                    found = true;
+                    rowMatches = true;
                     break;
                 }
             }
-            if (found) break;
+            if (rowMatches) matchedRows.add(i);
         }
 
-        if (!found) {
+        if (!matchedRows.isEmpty()) {
+            // 选中并滚动到第一个匹配项，同时保持选中所有匹配行
+            int first = matchedRows.get(0);
+            for (int r : matchedRows) {
+                try {
+                    roomTable.addRowSelectionInterval(r, r);
+                } catch (Exception ignored) {}
+            }
+            roomTable.scrollRectToVisible(roomTable.getCellRect(first, 0, true));
+        } else {
             JOptionPane.showMessageDialog(this, "未找到匹配的宿舍！", "提示", JOptionPane.INFORMATION_MESSAGE);
         }
     }
@@ -974,7 +982,12 @@ public class RoomPanel extends JPanel {
                 java.util.Collections.sort(k);
                 for (String s : k) { keys.add(s); values.add(data.getOrDefault(s, 0.0)); }
             }
-            repaint();
+            // 保证在 EDT 上重绘
+            if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                repaint();
+            } else {
+                javax.swing.SwingUtilities.invokeLater(this::repaint);
+            }
         }
 
         @Override
@@ -996,8 +1009,8 @@ public class RoomPanel extends JPanel {
 
                 int padding = 40;
                 int labelHeight = 40;
-                int plotHeight = h - padding - labelHeight;
-                int plotWidth = w - padding * 2;
+                int plotHeight = Math.max(30, h - padding - labelHeight);
+                int plotWidth = Math.max(50, w - padding * 2);
 
                 // 找到最大值用于缩放（values 为比例 0..1）
                 double maxVal = 0.0;
@@ -1007,7 +1020,21 @@ public class RoomPanel extends JPanel {
                 int n = keys.size();
                 int barGap = 10;
                 int availableWidth = plotWidth - (n + 1) * barGap;
-                int barWidth = Math.max(10, availableWidth / Math.max(1, n));
+                int barWidth;
+                if (availableWidth > 0) {
+                    barWidth = Math.max(10, availableWidth / Math.max(1, n));
+                } else {
+                    // 宽度不足时：缩小 gap，保证每个柱最小宽度
+                    barGap = 6;
+                    int minBar = 10;
+                    int totalNeeded = n * minBar + (n + 1) * barGap;
+                    if (totalNeeded <= plotWidth) {
+                        barWidth = minBar;
+                    } else {
+                        // 尽量压缩到能显示
+                        barWidth = Math.max(4, plotWidth / Math.max(1, n + (n/3)));
+                    }
+                }
 
                 // 绘制 Y 轴刻度（0% - 100%）
                 g2.setColor(Color.DARK_GRAY);
@@ -1026,6 +1053,7 @@ public class RoomPanel extends JPanel {
 
                 // 绘制柱状图
                 int x = padding + barGap;
+                FontMetrics fm = g2.getFontMetrics();
                 for (int i = 0; i < n; i++) {
                     double val = values.get(i);
                     int barHeight = (int) (val / maxVal * plotHeight);
@@ -1035,15 +1063,14 @@ public class RoomPanel extends JPanel {
                     // 渐变填充
                     GradientPaint gp = new GradientPaint(bx, by, new Color(100, 160, 220), bx, by + barHeight, new Color(30, 90, 160));
                     g2.setPaint(gp);
-                    g2.fillRect(bx, by, barWidth, barHeight);
+                    g2.fillRect(bx, by, barWidth, Math.max(1, barHeight));
 
                     // 边框
                     g2.setColor(Color.DARK_GRAY);
-                    g2.drawRect(bx, by, barWidth, barHeight);
+                    g2.drawRect(bx, by, barWidth, Math.max(1, barHeight));
 
                     // 值文字（百分比）
                     String valStr = String.format("%.0f%%", val * 100);
-                    FontMetrics fm = g2.getFontMetrics();
                     int strW = fm.stringWidth(valStr);
                     g2.setColor(Color.BLACK);
                     g2.drawString(valStr, bx + (barWidth - strW) / 2, Math.max(by - 6, padding + 10));
@@ -1052,7 +1079,16 @@ public class RoomPanel extends JPanel {
                     String label = keys.get(i);
                     int labY = padding + plotHeight + 18;
                     int labW = fm.stringWidth(label);
-                    g2.drawString(label, bx + (barWidth - labW) / 2, labY);
+                    // 如果标签过宽，截断并加省略号
+                    String outLabel = label;
+                    int maxLabelW = barWidth + 8;
+                    if (labW > maxLabelW) {
+                        for (int cut = label.length() - 1; cut > 0; cut--) {
+                            String t = label.substring(0, cut) + "...";
+                            if (fm.stringWidth(t) <= maxLabelW) { outLabel = t; break; }
+                        }
+                    }
+                    g2.drawString(outLabel, bx + (barWidth - fm.stringWidth(outLabel)) / 2, labY);
 
                     x += barWidth + barGap;
                 }
@@ -1064,3 +1100,4 @@ public class RoomPanel extends JPanel {
     }
 
 }
+
