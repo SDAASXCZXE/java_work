@@ -27,11 +27,12 @@ public interface RoomService {
     boolean update(Room room);
 
     /**
-     * 根据房间号删除宿舍
+     * 根据楼栋与房间号删除宿舍
+     * @param building 楼栋
      * @param roomNumber 房间号
      * @return 成功返回 true
      */
-    boolean deleteByRoomNumber(String roomNumber);
+    boolean deleteByBuildingAndRoom(String building, String roomNumber);
 
     /**
      * 更新入住/退宿信息（仅改变人数和状态）
