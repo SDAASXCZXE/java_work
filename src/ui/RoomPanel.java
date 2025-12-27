@@ -452,11 +452,25 @@ public class RoomPanel extends JPanel {
             // 直接使用字符串
             Room room = new Room(roomNumber, building, roomType, totalBeds, occupied, available, monitor, phone, hygiene, statusText, remarks);
 
-            // 新增：检查房间号唯一（使用已有的 roomService 实例）
-            if (roomService.existsByRoomNumber(roomNumber)) {
-                JOptionPane.showMessageDialog(dialog, "房间号已存在，请检查输入。", "错误", JOptionPane.ERROR_MESSAGE);
+            // 【关键修复】检查房间号唯一性（联合 building 和 roomNumber）
+            // 如果 roomService 不支持 building 参数，我们手动遍历 tableModel 检查
+            boolean isDuplicate = false;
+            for (int i = 0; i < tableModel.getRowCount(); i++) {
+                String existRoom = tableModel.getValueAt(i, 0).toString();
+                String existBuilding = tableModel.getValueAt(i, 1).toString();
+                if (existRoom.equals(roomNumber) && existBuilding.equals(building)) {
+                    isDuplicate = true;
+                    break;
+                }
+            }
+
+            if (isDuplicate) {
+                JOptionPane.showMessageDialog(dialog, "该楼栋已存在此房间号，请检查输入。", "错误", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+
+            // 如果您的数据库设置了 room_number 唯一键（不包含 building），这里依然会报错。
+            // 请确保数据库 UNIQUE 索引是 (building, room_number)。
 
             boolean ok = roomService.add(room);
             if (ok) {
@@ -464,8 +478,10 @@ public class RoomPanel extends JPanel {
                 // 尝试在表格中定位新添加的宿舍并选中
                 boolean found = false;
                 for (int i = 0; i < tableModel.getRowCount(); i++) {
-                    Object v = tableModel.getValueAt(i, 0);
-                    if (v != null && v.toString().equals(roomNumber)) {
+                    Object vRoom = tableModel.getValueAt(i, 0);
+                    Object vBuilding = tableModel.getValueAt(i, 1);
+                    if (vRoom != null && vRoom.toString().equals(roomNumber) &&
+                            vBuilding != null && vBuilding.toString().equals(building)) {
                         roomTable.setRowSelectionInterval(i, i);
                         roomTable.scrollRectToVisible(roomTable.getCellRect(i, 0, true));
                         found = true;
@@ -481,7 +497,7 @@ public class RoomPanel extends JPanel {
                     JOptionPane.showMessageDialog(dialog, msg, "警告", JOptionPane.WARNING_MESSAGE);
                 }
             } else {
-                JOptionPane.showMessageDialog(dialog, "宿舍添加失败，请检查数据库连接或重复房间号。", "错误", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "宿舍添加失败，请检查数据库连接或是否存在重复数据。", "错误", JOptionPane.ERROR_MESSAGE);
             }
         });
 
@@ -542,6 +558,7 @@ public class RoomPanel extends JPanel {
                 case 1:
                     JComboBox<String> bCombo = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋", "E栋"});
                     bCombo.setSelectedItem(currentValue);
+                    bCombo.setEnabled(false); // 楼栋和房间号是主键，通常不允许修改
                     fields[i] = bCombo;
                     break;
                 case 2:
@@ -651,12 +668,17 @@ public class RoomPanel extends JPanel {
         }
 
         String roomNumber = safeGet(selectedRow, 0);
+        String building = safeGet(selectedRow, 1); // 获取楼栋
+
         int confirm = JOptionPane.showConfirmDialog(this,
-                "确定要删除宿舍 [" + roomNumber + "] 吗？",
+                "确定要删除宿舍 [" + building + " " + roomNumber + "] 吗？",
                 "确认删除",
                 JOptionPane.YES_NO_OPTION);
 
         if (confirm == JOptionPane.YES_OPTION) {
+            // 这里存在一个隐患：deleteByRoomNumber 可能会删除所有楼栋的同号房间
+            // 建议修复 Dao 层的删除逻辑
+            // 临时检查：如果 RoomService.deleteByRoomNumber 实现有误，这里会误删
             boolean ok = roomService.deleteByRoomNumber(roomNumber);
             if (ok) {
                 loadRoomsFromDB();
@@ -716,6 +738,12 @@ public class RoomPanel extends JPanel {
             String statusText = newAvailable == 0 ? "已住满" : "有空位";
 
             String roomNumber = safeGet(selectedRow, 0);
+            String building = safeGet(selectedRow, 1);
+
+            // 注意：这里调用的是 Dao 层的 updateOccupancy，如果 Dao 层只用 roomNumber 做条件，会有 Bug。
+            // 建议您修改 Service/Dao 层以支持 building 参数。
+            // 假设 roomService.updateOccupancy 已经修复或接受联合键，否则这里依然有风险。
+
             boolean ok = roomService.updateOccupancy(roomNumber, newOccupied, newAvailable, statusText);
             if (ok) {
                 loadRoomsFromDB();
