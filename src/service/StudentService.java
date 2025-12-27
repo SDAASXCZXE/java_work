@@ -2,6 +2,7 @@ package service;
 
 import model.Student;
 
+import java.io.File;
 import java.util.List;
 
 public interface StudentService {
@@ -11,4 +12,5 @@ public interface StudentService {
     boolean updateStudent(Student student);
     boolean existsBySno(String sno);
     Student getStudentBySno(String sno);
+    boolean importFromCsv(File file);
 }
