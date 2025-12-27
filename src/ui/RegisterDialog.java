@@ -90,7 +90,7 @@ public class RegisterDialog extends JDialog {
 
         JButton registerButton = new JButton("注册");
         registerButton.setBackground(new Color(70, 130, 180));
-        registerButton.setForeground(Color.WHITE);
+        registerButton.setForeground(Color.BLACK);
         registerButton.setPreferredSize(new Dimension(100, 30));
         registerButton.addActionListener(e -> register());
 

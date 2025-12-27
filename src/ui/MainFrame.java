@@ -195,7 +195,7 @@ public class MainFrame extends JFrame {
 
     private void showAbout() {
         JOptionPane.showMessageDialog(this,
-                "学生宿舍管理系统 V2.0\n基于 Java Swing + JDBC 构建\n\n© 2024 开发小组 版权所有",
+                "学生宿舍管理系统 V2.0\n基于 Java Swing + JDBC 构建\n\n© 2025 开发小组 版权所有",
                 "关于", JOptionPane.INFORMATION_MESSAGE);
     }
 }
