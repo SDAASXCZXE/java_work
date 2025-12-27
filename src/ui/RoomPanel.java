@@ -78,7 +78,7 @@ public class RoomPanel extends JPanel {
         JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         toolBar.setBorder(BorderFactory.createTitledBorder("宿舍管理"));
 
-        String[] buttons = {"新增宿舍", "编辑信息", "删除宿舍", "入住登记", "退宿处理", "导出数据"};
+        String[] buttons = {"新增宿舍", "编辑信息", "删除宿舍", "入住登记", "退宿处理", "导出数据", "导入宿舍"};
         for (String text : buttons) {
             JButton button = new JButton(text);
             button.setBackground(new Color(70, 130, 180));
@@ -317,7 +317,31 @@ public class RoomPanel extends JPanel {
             case "入住登记": checkIn(); break;
             case "退宿处理": checkOut(); break;
             case "导出数据": exportRoomData(); break;
+            case "导入宿舍": importRooms(); break;
         }
+    }
+
+    // 一键导入宿舍 CSV
+    private void importRooms() {
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("导入宿舍（CSV）");
+        int res = chooser.showOpenDialog(this);
+        if (res != JFileChooser.APPROVE_OPTION) return;
+        java.io.File file = chooser.getSelectedFile();
+        if (file == null || !file.exists()) return;
+
+        new Thread(() -> {
+            boolean ok = roomService.importFromCsv(file);
+            SwingUtilities.invokeLater(() -> {
+                if (ok) {
+                    JOptionPane.showMessageDialog(this, "宿舍导入完成（部分或全部成功）");
+                    loadRoomsFromDB();
+                    util.RefreshCenter.notify("rooms-updated");
+                } else {
+                    JOptionPane.showMessageDialog(this, "宿舍导入失败或没有有效记录。", "导入结果", JOptionPane.WARNING_MESSAGE);
+                }
+            });
+        }).start();
     }
 
     /**

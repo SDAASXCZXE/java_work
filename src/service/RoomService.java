@@ -2,6 +2,7 @@ package service;
 
 import model.Room;
 
+import java.io.File;
 import java.util.List;
 
 public interface RoomService {
@@ -41,4 +42,7 @@ public interface RoomService {
      * 检查房间号是否存在
      */
     boolean existsByRoomNumber(String roomNumber);
+
+    // 批量从 CSV 导入宿舍数据
+    boolean importFromCsv(File file);
 }
