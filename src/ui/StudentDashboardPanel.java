@@ -32,7 +32,7 @@ public class StudentDashboardPanel extends JPanel {
         tabbedPane.addTab("个人资料", new StudentInfoPanel(student));
         tabbedPane.addTab("故障报修", new StudentRepairPanel(student));
        // tabbedPane.addTab("考勤明细", new StudentAttendancePanel(student));
-        tabbedPane.addTab("请假申请", new StudentHolidayPanel(student));
+        tabbedPane.addTab("假期登记", new StudentHolidayPanel(student));
        // tabbedPane.addTab("调宿申请", new StudentRoomChangePanel(student));
 
         add(tabbedPane, BorderLayout.CENTER);

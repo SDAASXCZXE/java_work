@@ -37,11 +37,11 @@ public class StudentHolidayPanel extends JPanel {
         setBorder(BorderFactory.createEmptyBorder(10,10,10,10));
 
         JPanel tools = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JButton addBtn = new JButton("提交请假");
+        JButton addBtn = new JButton("提交假期登记");
         addBtn.setBackground(new Color(70,130,180));
         addBtn.setForeground(Color.WHITE);
         JButton refreshBtn = new JButton("刷新列表");
-        JButton deleteBtn = new JButton("删除请假");
+        JButton deleteBtn = new JButton("删除假期登记");
         deleteBtn.setBackground(new Color(200,50,50));
         deleteBtn.setForeground(Color.WHITE);
 
@@ -78,7 +78,7 @@ public class StudentHolidayPanel extends JPanel {
     }
 
     private void showAddHolidayDialog(){
-        JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "提交请假申请", true);
+        JDialog d = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "提交假期登记", true);
         d.setSize(480,380);
         d.setLocationRelativeTo(this);
         JPanel p = new JPanel(new GridBagLayout());
@@ -124,7 +124,7 @@ public class StudentHolidayPanel extends JPanel {
             if (startDateObj == null || endDateObj == null) { JOptionPane.showMessageDialog(d,"起始/结束日期不能为空"); return; }
 
             //LocalDate start = startDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-            //LocalDate end = endDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+           // LocalDate end = endDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 
             LocalDate start = startDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
             LocalDate end = endDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
@@ -173,7 +173,7 @@ public class StudentHolidayPanel extends JPanel {
     private void handleDelete(){
         int row = table.getSelectedRow(); if (row==-1){ JOptionPane.showMessageDialog(this,"请选择一条记录"); return; }
         String id = model.getValueAt(row,0).toString();
-        if (JOptionPane.showConfirmDialog(this,"确认永久删除请假申请 " + id + " ?","删除确认",JOptionPane.YES_NO_OPTION)==JOptionPane.YES_OPTION){
+        if (JOptionPane.showConfirmDialog(this,"确认永久删除假期登记 " + id + " ?","删除确认",JOptionPane.YES_NO_OPTION)==JOptionPane.YES_OPTION){
             boolean ok = holidayService.deleteById(id);
             if (ok){ JOptionPane.showMessageDialog(this,"删除成功"); loadData(); } else { JOptionPane.showMessageDialog(this,"删除失败","错误",JOptionPane.ERROR_MESSAGE); }
         }
