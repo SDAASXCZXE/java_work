@@ -5,6 +5,9 @@ import uimodel.UserType;
 
 import javax.swing.*;
 import java.awt.*;
+import model.Student;
+import service.impl.StudentServiceImpl;
+import java.time.LocalDate;
 
 /**
  * 用户注册对话框
@@ -192,15 +195,37 @@ public class RegisterDialog extends JDialog {
                 studentId, name, phone, email);
 
         if (success) {
-            // 如果是学生用户，不再自动写入 student 表
-            // 学生档案（student 表）应由管理员在 "学生档案管理" 页面创建和维护
+            // 如果是学生用户：尝试同时写入 student 表（成为学生档案的一部分）
             if (userType == UserType.STUDENT) {
+                Student s = new Student();
+                s.setSno(studentId);
+                s.setName(name);
+                s.setPhone(phone);
+                s.setInDate(LocalDate.now());
+                // 其他字段保留为空，由管理员在学生档案管理中补全
+
+                StudentServiceImpl svc = new StudentServiceImpl();
+                boolean dbOk = false;
+                try {
+                    dbOk = svc.addStudent(s);
+                } catch (Exception ex) { ex.printStackTrace(); }
+
+                if (!dbOk) {
+                    // 回滚前端用户，提示失败
+                    userManager.removeUserByUsername(username);
+                    JOptionPane.showMessageDialog(this,
+                            "注册失败：无法将学生信息写入数据库（学号可能已存在）。已回滚前端账号。",
+                            "注册失败", JOptionPane.ERROR_MESSAGE);
+                    return;
+                }
+
                 JOptionPane.showMessageDialog(this,
-                        "注册成功！\n已创建前端学生账号（用户名：" + username + "，默认密码：123456）。\n" +
-                                "学生档案（student 表）请由管理员在学生档案管理中添加/维护。",
+                        "注册成功！已创建前端学生账号并写入学生档案（用户名：" + username + "，默认密码：123456）。",
                         "注册成功（学生）", JOptionPane.INFORMATION_MESSAGE);
                 registered = true;
                 dispose();
+                // 通知其他组件（如果有刷新中心）
+                try { util.RefreshCenter.notify("students-updated"); } catch (Exception ignored) {}
                 return;
             }
 
@@ -214,4 +239,3 @@ public class RegisterDialog extends JDialog {
         }
     }
 }
-
