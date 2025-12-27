@@ -489,7 +489,8 @@ public class StudentPanel extends JPanel {
         int newOcc = Math.max(0, room.getOccupied() + change);
         int newAvail = room.getTotalBeds() - newOcc;
         String newStatus = (newAvail <= 0) ? "已住满" : "有空位";
-        return service.updateOccupancy(r, newOcc, newAvail, newStatus);
+        // 使用楼栋与房间号联合更新，避免影响其他楼栋的同号房间
+        return service.updateOccupancy(b, r, newOcc, newAvail, newStatus);
     }
 
     private void deleteStudent() {

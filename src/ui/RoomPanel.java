@@ -768,7 +768,7 @@ public class RoomPanel extends JPanel {
             // 建议您修改 Service/Dao 层以支持 building 参数。
             // 假设 roomService.updateOccupancy 已经修复或接受联合键，否则这里依然有风险。
 
-            boolean ok = roomService.updateOccupancy(roomNumber, newOccupied, newAvailable, statusText);
+            boolean ok = roomService.updateOccupancy(building, roomNumber, newOccupied, newAvailable, statusText);
             if (ok) {
                 loadRoomsFromDB();
                 JOptionPane.showMessageDialog(dialog, "入住登记成功！\n入住人数: " + checkinCount);
@@ -836,7 +836,8 @@ public class RoomPanel extends JPanel {
             String statusText = newOccupied == 0 ? "空置" : "有空位";
 
             String roomNumber = safeGet(selectedRow, 0);
-            boolean ok = roomService.updateOccupancy(roomNumber, newOccupied, newAvailable, statusText);
+            String building = safeGet(selectedRow, 1);
+            boolean ok = roomService.updateOccupancy(building, roomNumber, newOccupied, newAvailable, statusText);
             if (ok) {
                 loadRoomsFromDB();
                 JOptionPane.showMessageDialog(dialog,

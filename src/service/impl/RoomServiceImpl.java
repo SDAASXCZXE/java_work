@@ -42,6 +42,23 @@ public class RoomServiceImpl implements RoomService {
         return dao.updateOccupancy(roomNumber, occupied, available, status);
     }
 
+    @Override
+    public boolean updateOccupancy(String building, String roomNumber, int occupied, int available, String status) {
+        // 委托给 DAO 中支持 building 的实现（RoomDaoImpl::updateOccupancy(building, roomNumber, ...)）
+        try {
+            // RoomDaoImpl 已提供 updateOccupancy(building, roomNumber, ...)
+            java.lang.reflect.Method m = dao.getClass().getMethod("updateOccupancy", String.class, String.class, int.class, int.class, String.class);
+            Object res = m.invoke(dao, building, roomNumber, occupied, available, status);
+            return res instanceof Boolean && (Boolean) res;
+        } catch (NoSuchMethodException nsme) {
+            // 如果 DAO 没有重载方法，退回到原先的按 roomNumber 更新（不推荐）
+            return dao.updateOccupancy(roomNumber, occupied, available, status);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
     // 新增：检查房间是否存在，UI 使用以避免重复添加
     public boolean existsByRoomNumber(String roomNumber) {
         return dao.existsByRoomNumber(roomNumber);
