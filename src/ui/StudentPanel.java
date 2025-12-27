@@ -392,9 +392,20 @@ public class StudentPanel extends JPanel {
         JComponent[] fields = new JComponent[labels.length];
 
         Map<String, String[]> collegeMajorMap = new HashMap<>();
-        collegeMajorMap.put("计算机学院", new String[]{"软件工程", "计算机科学与技术", "人工智能", "数据科学与大数据技术", "网络工程"});
+        collegeMajorMap.put("信息工程学院", new String[]{"软件工程", "计算机科学与技术", "人工智能", "数据科学与大数据技术", "网络工程"});
         collegeMajorMap.put("经济管理学院", new String[]{"会计学", "财务管理", "工商管理", "市场营销", "金融学"});
         collegeMajorMap.put("电子信息学院", new String[]{"电子信息工程", "通信工程", "微电子科学与工程"});
+        collegeMajorMap.put("机械工程学院", new String[]{"机械设计制造及其自动化", "车辆工程", "工业设计", "智能制造工程", "材料成型及控制工程"});
+        collegeMajorMap.put("土木工程学院", new String[]{"土木工程", "建筑环境与能源应用工程", "给排水科学与工程", "工程管理", "道路桥梁与渡河工程"});
+        collegeMajorMap.put("外国语学院", new String[]{"英语", "日语", "法语", "德语", "翻译", "商务英语"});
+        collegeMajorMap.put("艺术学院", new String[]{"美术学", "音乐学", "舞蹈学", "视觉传达设计", "环境设计", "产品设计"});
+        collegeMajorMap.put("理学院", new String[]{"数学与应用数学", "物理学", "化学", "应用化学", "统计学"});
+        collegeMajorMap.put("教育学院", new String[]{"教育学", "学前教育", "小学教育", "特殊教育", "教育技术学"});
+        collegeMajorMap.put("体育学院", new String[]{"体育教育", "社会体育指导与管理", "运动训练", "武术与民族传统体育"});
+        collegeMajorMap.put("电气工程学院", new String[]{"电气工程及其自动化", "自动化", "测控技术与仪器", "机器人工程"});
+        collegeMajorMap.put("化工学院", new String[]{"化学工程与工艺", "制药工程", "能源化学工程", "应用化学"});
+        collegeMajorMap.put("马克思主义学院", new String[]{"思想政治教育", "马克思主义理论", "科学社会主义"});
+
 
         for (int i = 0; i < labels.length; i++) {
             formPanel.add(new JLabel(labels[i]));
