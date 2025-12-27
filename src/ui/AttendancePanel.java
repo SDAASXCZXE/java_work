@@ -7,11 +7,14 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.ArrayList;
+import java.util.Date;
+import java.util.Calendar;
 
 import model.Attendance;
 import model.Student;
@@ -74,6 +77,36 @@ public class AttendancePanel extends JPanel {
         statusFilter = new JComboBox<>(new String[]{"全部", "正常", "晚归", "未归", "请假"});
         statusFilter.addActionListener(e -> filterAttendance());
         toolBar.add(statusFilter);
+
+        // --- 新增查询功能（按日期 / 按学号） ---
+        toolBar.add(Box.createHorizontalStrut(10));
+
+        toolBar.add(new JLabel("按日期查询:"));
+        SpinnerDateModel queryDateModel = new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH);
+        JSpinner queryDateSpinner = new JSpinner(queryDateModel);
+        JSpinner.DateEditor dateEditor = new JSpinner.DateEditor(queryDateSpinner, "yyyy-MM-dd");
+        queryDateSpinner.setEditor(dateEditor);
+        toolBar.add(queryDateSpinner);
+        JButton btnDateQuery = new JButton("查询日期");
+        btnDateQuery.addActionListener(e -> {
+            Date d = (Date) queryDateSpinner.getValue();
+            LocalDate ld = d.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            searchByDate(ld);
+        });
+        toolBar.add(btnDateQuery);
+
+        toolBar.add(Box.createHorizontalStrut(10));
+        toolBar.add(new JLabel("学号:"));
+        JTextField snoField = new JTextField(8);
+        toolBar.add(snoField);
+        JButton btnSnoQuery = new JButton("查询学号");
+        btnSnoQuery.addActionListener(e -> {
+            String sno = snoField.getText().trim();
+            if (sno.isEmpty()) { JOptionPane.showMessageDialog(this, "请输入学号"); return; }
+            searchByStudent(sno);
+        });
+        toolBar.add(btnSnoQuery);
+        // --- 查询功能结束 ---
 
         return toolBar;
     }
@@ -186,6 +219,67 @@ public class AttendancePanel extends JPanel {
         lblLeaveCount.setText("请假人数: " + lea);
         lblAbsentCount.setText("未归人数: " + (due - ret - lea));
         lblCurrentIn.setText("当前在楼: " + ret);
+    }
+
+    /**
+     * 根据当前显示的记录刷新统计（用于查询结果）
+     */
+    private void updateStatsFromList(List<Attendance> records) {
+        List<Student> students = studentService.listStudents();
+        int due = students.size();
+        int ret = 0, lat = 0, lea = 0;
+        for (Attendance a : records) {
+            if (a.isEntry()) ret++;
+            if (a.getStatus() == Attendance.AttendanceStatus.LATE) lat++;
+            if (a.getStatus() == Attendance.AttendanceStatus.LEAVE) lea++;
+        }
+        lblDueCount.setText("应归人数: " + due);
+        lblReturnedCount.setText("已归人数: " + ret);
+        lblLateCount.setText("晚归人数: " + lat);
+        lblLeaveCount.setText("请假人数: " + lea);
+        lblAbsentCount.setText("未归人数: " + (due - ret - lea));
+        lblCurrentIn.setText("当前在楼: " + ret);
+    }
+
+    /**
+     * 按日期查询（异步）
+     */
+    private void searchByDate(LocalDate date) {
+        new SwingWorker<List<Attendance>, Void>() {
+            @Override
+            protected List<Attendance> doInBackground() {
+                return attendanceService.listByDate(date);
+            }
+            @Override
+            protected void done() {
+                try {
+                    currentDataList = get();
+                    renderTable(currentDataList);
+                    updateStatsFromList(currentDataList);
+                    statsDate = date; // 更新全局统计日期
+                } catch (Exception e) { e.printStackTrace(); }
+            }
+        }.execute();
+    }
+
+    /**
+     * 按学号查询（异步）
+     */
+    private void searchByStudent(String studentId) {
+        new SwingWorker<List<Attendance>, Void>() {
+            @Override
+            protected List<Attendance> doInBackground() {
+                return attendanceService.listByStudent(studentId);
+            }
+            @Override
+            protected void done() {
+                try {
+                    currentDataList = get();
+                    renderTable(currentDataList);
+                    updateStatsFromList(currentDataList);
+                } catch (Exception e) { e.printStackTrace(); }
+            }
+        }.execute();
     }
 
     /**
