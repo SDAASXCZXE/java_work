@@ -150,7 +150,7 @@ public class StudentPanel extends JPanel {
             bInit = originalDorm.substring(0, idx + 1);
             rInit = originalDorm.substring(idx + 1);
         }
-        JComboBox<String> cbBuilding = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋"});
+        JComboBox<String> cbBuilding = new JComboBox<>(new String[]{"A栋", "B栋", "C栋", "D栋", "E栋"});
         cbBuilding.setSelectedItem(bInit);
         JTextField roomField = new JTextField(rInit);
         JTextField bedField = new JTextField(originalBed);
@@ -254,7 +254,7 @@ public class StudentPanel extends JPanel {
         JComponent[] fields = new JComponent[labels.length];
 
         Map<String, String[]> collegeMajorMap = new HashMap<>();
-        collegeMajorMap.put("计算机学院", new String[]{"软件工程", "计算机科学与技术", "人工智能", "数据科学与大数据技术", "网络工程"});
+        collegeMajorMap.put("信息工程学院", new String[]{"软件工程", "计算机科学与技术", "人工智能", "数据科学与大数据技术", "网络工程"});
         collegeMajorMap.put("经济管理学院", new String[]{"会计学", "财务管理", "工商管理", "市场营销", "金融学"});
         collegeMajorMap.put("电子信息学院", new String[]{"电子信息工程", "通信工程", "微电子科学与工程"});
         collegeMajorMap.put("机械工程学院", new String[]{"机械设计制造及其自动化", "车辆工程", "工业设计", "智能制造工程", "材料成型及控制工程"});
