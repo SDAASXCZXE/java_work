@@ -1,6 +1,8 @@
 package ui;
 
 import model.Room;
+import model.Student;
+import service.impl.StudentServiceImpl;
 import service.RoomService;
 import service.impl.RoomServiceImpl;
 import util.DBUtil;
@@ -802,59 +804,101 @@ public class RoomPanel extends JPanel {
             return;
         }
 
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "退宿处理", true);
-        dialog.setLayout(new BorderLayout());
-        dialog.setSize(300, 200);
-        dialog.setLocationRelativeTo(this);
+        String roomNumber = safeGet(selectedRow, 0);
+        String building = safeGet(selectedRow, 1);
+        if (building.isEmpty() || roomNumber.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "宿舍信息不完整，无法退宿。", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        JPanel formPanel = new JPanel(new GridLayout(2, 2, 10, 10));
-        formPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        // 查找该宿舍的学生（Student.roomNumber 存储格式为 "A栋101"）
+        String dormKey = (building + roomNumber).replaceAll("\\s+", "").toLowerCase();
+        java.util.List<Student> residents = new StudentServiceImpl().listStudents().stream()
+                .filter(s -> {
+                    String rn = s.getRoomNumber();
+                    if (rn == null) return false;
+                    String normalized = rn.replaceAll("\\s+", "").toLowerCase();
+                    // 严格匹配楼栋+房间号，避免匹配到其他楼或仅按房间号匹配
+                    return normalized.equals(dormKey);
+                })
+                .toList();
 
-        formPanel.add(new JLabel("退宿人数:"));
-        JSpinner checkoutSpinner = new JSpinner(new SpinnerNumberModel(1, 1, occupied, 1));
-        formPanel.add(checkoutSpinner);
+        if (residents.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "未在学生记录中找到该宿舍的入住学生。", "提示", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
 
-        formPanel.add(new JLabel("退宿原因:"));
-        JTextField reasonField = new JTextField();
-        formPanel.add(reasonField);
+        // 构造选择列表，允许多选以退多名学生
+        DefaultListModel<String> lm = new DefaultListModel<>();
+        for (Student s : residents) {
+            lm.addElement(s.getSno() + "  " + s.getName() + "  床位:" + (s.getBedNumber() == null ? "" : s.getBedNumber()));
+        }
+        JList<String> list = new JList<>(lm);
+        list.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        list.setVisibleRowCount(Math.min(8, lm.size()));
 
-        dialog.add(formPanel, BorderLayout.CENTER);
+        JPanel p = new JPanel(new BorderLayout(8, 8));
+        p.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+        p.add(new JLabel("请选择要退宿的学生（可多选）："), BorderLayout.NORTH);
+        p.add(new JScrollPane(list), BorderLayout.CENTER);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        JButton confirmButton = new JButton("确认退宿");
-        JButton cancelButton = new JButton("取消");
+        int res = JOptionPane.showConfirmDialog(this, p, "退宿 - 选择学生", JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE);
+        if (res != JOptionPane.OK_OPTION) return;
 
-        confirmButton.addActionListener(e -> {
-            int checkoutCount = (Integer) checkoutSpinner.getValue();
-            String reason = reasonField.getText().trim();
+        int[] sel = list.getSelectedIndices();
+        if (sel == null || sel.length == 0) {
+            JOptionPane.showMessageDialog(this, "请至少选择一名学生。", "提示", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
 
-            int currentOccupied = parseIntSafe(safeGet(selectedRow, 4), 0);
-            int totalBeds = parseIntSafe(safeGet(selectedRow, 3), 0);
-
-            int newOccupied = Math.max(0, currentOccupied - checkoutCount);
-            int newAvailable = Math.max(0, totalBeds - newOccupied);
-            String statusText = newOccupied == 0 ? "空置" : "有空位";
-
-            String roomNumber = safeGet(selectedRow, 0);
-            String building = safeGet(selectedRow, 1);
-            boolean ok = roomService.updateOccupancy(building, roomNumber, newOccupied, newAvailable, statusText);
+        // 逐个更新学生记录并统计成功数
+        StudentServiceImpl stuSvc = new StudentServiceImpl();
+        int removed = 0;
+        java.util.List<String> removedNames = new java.util.ArrayList<>();
+        for (int idx : sel) {
+            if (idx < 0 || idx >= residents.size()) continue;
+            Student s = residents.get(idx);
+            // 清空宿舍信息
+            s.setRoomNumber("");
+            s.setBedNumber("");
+            boolean ok = stuSvc.updateStudent(s);
             if (ok) {
-                loadRoomsFromDB();
-                JOptionPane.showMessageDialog(dialog,
-                        "退宿处理成功！\n退宿人数: " + checkoutCount +
-                                (reason.isEmpty() ? "" : "\n退宿原因: " + reason));
-                dialog.dispose();
-            } else {
-                JOptionPane.showMessageDialog(dialog, "退宿失败，请检查数据库连接。", "错误", JOptionPane.ERROR_MESSAGE);
+                removed++;
+                removedNames.add(s.getSno() + "(" + s.getName() + ")");
             }
-        });
+        }
 
-        cancelButton.addActionListener(e -> dialog.dispose());
+        if (removed == 0) {
+            JOptionPane.showMessageDialog(this, "未能更新任何学生记录。请检查数据库连接或权限。", "错误", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
 
-        buttonPanel.add(confirmButton);
-        buttonPanel.add(cancelButton);
-        dialog.add(buttonPanel, BorderLayout.SOUTH);
-        dialog.setVisible(true);
+        // 更新宿舍的占用人数
+        Room room = roomService.findAll().stream()
+                .filter(r -> building.equals(r.getBuilding()) && roomNumber.equals(r.getRoomNumber()))
+                .findFirst().orElse(null);
+        if (room == null) {
+            JOptionPane.showMessageDialog(this, "未找到对应宿舍记录，学生信息已更新但宿舍表未同步。", "警告", JOptionPane.WARNING_MESSAGE);
+            // 仍然刷新学生列表
+            loadRoomsFromDB();
+            util.RefreshCenter.notify("students-updated");
+            return;
+        }
+
+        int newOcc = Math.max(0, room.getOccupied() - removed);
+        int newAvail = Math.max(0, room.getTotalBeds() - newOcc);
+        String statusText = newAvail == 0 ? "已住满" : (newOcc == 0 ? "空置" : "有空位");
+
+        boolean okRoom = roomService.updateOccupancy(building, roomNumber, newOcc, newAvail, statusText);
+
+        // 刷新界面
+        loadRoomsFromDB();
+        util.RefreshCenter.notify("students-updated");
+        util.RefreshCenter.notify("rooms-updated");
+
+        String msg = String.format("已成功为宿舍 [%s %s] 退宿 %d 人：%s", building, roomNumber, removed, String.join(", ", removedNames));
+        if (!okRoom) msg += "\n但宿舍人数更新失败，请检查数据库连接。";
+        JOptionPane.showMessageDialog(this, msg, "退宿完成", JOptionPane.INFORMATION_MESSAGE);
     }
 
     /**

@@ -6,6 +6,7 @@ import service.AttendanceService;
 import service.StudentService;
 import service.impl.AttendanceServiceImpl;
 import service.impl.StudentServiceImpl;
+import util.RefreshCenter;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -39,6 +40,15 @@ public class AttendancePanel extends JPanel {
         initUI();
         loadDataFromDB(); // 初始加载
         startStatsTimer(); // 启动定时任务
+        // 注册学生或宿舍变更时的刷新回调，确保考勤视图与学生/宿舍信息同步
+        RefreshCenter.register("students-updated", this::onExternalDataUpdated);
+        RefreshCenter.register("rooms-updated", this::onExternalDataUpdated);
+    }
+
+    // 当学生或宿舍数据在其他面板变更时调用，异步刷新考勤数据
+    private void onExternalDataUpdated() {
+        // 使用 SwingUtilities.invokeLater 简单安排到 EDT
+        javax.swing.SwingUtilities.invokeLater(this::loadDataFromDB);
     }
 
     private void initUI() {
@@ -280,27 +290,127 @@ public class AttendancePanel extends JPanel {
      * 优化：补全手动登记。自动查询学生信息，自动判定晚归
      */
     private void manualRegistration() {
-        String sno = JOptionPane.showInputDialog(this, "请输入需要登记的学号:");
-        if (sno == null || sno.trim().isEmpty()) return;
+        // 弹出对话框，支持输入学号、选择日期/时间、方向与状态，并可填写备注
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "手动登记考勤", true);
+        dialog.setSize(420, 360);
+        dialog.setLocationRelativeTo(this);
+        JPanel panel = new JPanel(new GridLayout(0, 2, 8, 8));
 
-        Student s = studentService.getStudentBySno(sno);
-        if (s == null) {
-            JOptionPane.showMessageDialog(this, "数据库中未找到该学号！", "错误", JOptionPane.ERROR_MESSAGE);
-            return;
-        }
+        JTextField snoField = new JTextField();
+        JLabel nameLabel = new JLabel("(未加载)");
+        JLabel dormLabel = new JLabel("(未加载)");
+        JLabel buildingLabel = new JLabel("(未加载)");
 
-        // 构造新对象，使用自动生成的 ID (或者你在构造方法里处理)
-        Attendance a = new Attendance(sno, s.getRoomNumber(), s.getBuilding());
-        a.setAttendanceDate(LocalDate.now());
-        a.setAttendanceTime(LocalTime.now());
-        // 逻辑：22:30 以后登记算作晚归
-        a.setStatus(LocalTime.now().isAfter(LocalTime.of(22, 30)) ?
-                Attendance.AttendanceStatus.LATE : Attendance.AttendanceStatus.NORMAL);
+        panel.add(new JLabel("学号:")); panel.add(snoField);
+        JButton loadBtn = new JButton("加载学生");
+        panel.add(loadBtn); panel.add(new JLabel(""));
+        panel.add(new JLabel("姓名:")); panel.add(nameLabel);
+        panel.add(new JLabel("宿舍号:")); panel.add(dormLabel);
+        panel.add(new JLabel("楼栋:")); panel.add(buildingLabel);
 
-        if (attendanceService.add(a)) {
-            JOptionPane.showMessageDialog(this, "手动登记成功！状态：" + a.getStatus().getDescription());
-            loadDataFromDB();
-        }
+        panel.add(new JLabel("日期:"));
+        SpinnerDateModel dateModel = new SpinnerDateModel(new Date(), null, null, Calendar.DAY_OF_MONTH);
+        JSpinner dateSpinner = new JSpinner(dateModel);
+        dateSpinner.setEditor(new JSpinner.DateEditor(dateSpinner, "yyyy-MM-dd"));
+        panel.add(dateSpinner);
+
+        panel.add(new JLabel("时间:"));
+        SpinnerDateModel timeModel = new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE);
+        JSpinner timeSpinner = new JSpinner(timeModel);
+        timeSpinner.setEditor(new JSpinner.DateEditor(timeSpinner, "HH:mm:ss"));
+        panel.add(timeSpinner);
+
+        panel.add(new JLabel("方向:"));
+        JComboBox<Attendance.AttendanceDirection> dirCombo = new JComboBox<>(Attendance.AttendanceDirection.values());
+        dirCombo.setRenderer(new DefaultListCellRenderer() {
+            @Override public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Attendance.AttendanceDirection) setText(((Attendance.AttendanceDirection) value).getDescription());
+                return this;
+            }
+        });
+        panel.add(dirCombo);
+
+        panel.add(new JLabel("状态:"));
+        JComboBox<Attendance.AttendanceStatus> statusCombo = new JComboBox<>(Attendance.AttendanceStatus.values());
+        statusCombo.setRenderer(new DefaultListCellRenderer() {
+            @Override public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                if (value instanceof Attendance.AttendanceStatus) setText(((Attendance.AttendanceStatus) value).getDescription());
+                return this;
+            }
+        });
+        panel.add(statusCombo);
+
+        panel.add(new JLabel("备注:"));
+        JTextField remarksField = new JTextField();
+        panel.add(remarksField);
+
+        dialog.add(panel, BorderLayout.CENTER);
+
+        // 加载学生按钮行为
+        loadBtn.addActionListener(ev -> {
+            String sno = snoField.getText().trim();
+            if (sno.isEmpty()) { JOptionPane.showMessageDialog(dialog, "请输入学号后点击加载学生。", "提示", JOptionPane.WARNING_MESSAGE); return; }
+            Student s = studentService.getStudentBySno(sno);
+            if (s == null) {
+                JOptionPane.showMessageDialog(dialog, "数据库中未找到该学号！", "错误", JOptionPane.ERROR_MESSAGE);
+                nameLabel.setText("(未找到)"); dormLabel.setText("(未找到)"); buildingLabel.setText("(未找到)");
+            } else {
+                nameLabel.setText(s.getName());
+                dormLabel.setText(s.getRoomNumber() == null ? "" : s.getRoomNumber());
+                buildingLabel.setText(s.getBuilding() == null ? "" : s.getBuilding());
+            }
+        });
+
+        // 底部按钮
+        JPanel btnP = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton okBtn = new JButton("保存");
+        JButton cancelBtn = new JButton("取消");
+        btnP.add(okBtn); btnP.add(cancelBtn);
+        dialog.add(btnP, BorderLayout.SOUTH);
+
+        // 默认状态根据时间设置（22:30 后为晚归）
+        okBtn.addActionListener(ev -> {
+            String sno = snoField.getText().trim();
+            if (sno.isEmpty()) { JOptionPane.showMessageDialog(dialog, "学号不能为空！", "错误", JOptionPane.ERROR_MESSAGE); return; }
+            Student s = studentService.getStudentBySno(sno);
+            if (s == null) { JOptionPane.showMessageDialog(dialog, "数据库中未找到该学号！", "错误", JOptionPane.ERROR_MESSAGE); return; }
+
+            Date dDate = (Date) dateSpinner.getValue();
+            Date dTime = (Date) timeSpinner.getValue();
+            LocalDate date = dDate.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+            LocalTime time = dTime.toInstant().atZone(ZoneId.systemDefault()).toLocalTime();
+
+            Attendance.AttendanceDirection dir = (Attendance.AttendanceDirection) dirCombo.getSelectedItem();
+            Attendance.AttendanceStatus status = (Attendance.AttendanceStatus) statusCombo.getSelectedItem();
+
+            // 如果用户未主动选择状态（保留默认选择），我们仍然自动判断晚归
+            // 但因为用户可以选择，我们尊重用户选择
+            if (status == null) {
+                status = time.isAfter(LocalTime.of(22, 30)) ? Attendance.AttendanceStatus.LATE : Attendance.AttendanceStatus.NORMAL;
+            }
+
+            Attendance a = new Attendance(Attendance.generateId(), sno, s.getRoomNumber(), s.getBuilding(), date, time, dir, status);
+            a.setRemarks(remarksField.getText().trim());
+
+            if (attendanceService.add(a)) {
+                JOptionPane.showMessageDialog(dialog, "手动登记成功！状态：" + a.getStatus().getDescription());
+                dialog.dispose();
+                loadDataFromDB();
+            } else {
+                JOptionPane.showMessageDialog(dialog, "登记失败，请检查数据库连接或数据完整性。", "错误", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        cancelBtn.addActionListener(ev -> dialog.dispose());
+
+        // 当打开对话框时，将状态默认设为基于当前时间判断
+        // 并初始化时间选择器为当前时间
+        timeModel.setValue(new Date());
+        statusCombo.setSelectedItem(LocalTime.now().isAfter(LocalTime.of(22, 30)) ? Attendance.AttendanceStatus.LATE : Attendance.AttendanceStatus.NORMAL);
+
+        dialog.setVisible(true);
     }
 
     private void deleteAttendanceRecord() {
