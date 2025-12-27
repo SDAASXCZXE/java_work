@@ -73,7 +73,6 @@ public class RepairDaoImpl implements RepairDao {
                     }
 
                     Repair r = new Repair(id, sid, roomNo, building, type, desc, imgs);
-                    // 反射或直接设置可选字段
                     try { if (submitTime != null) {
                         java.lang.reflect.Field f = Repair.class.getDeclaredField("submitTime");
                         f.setAccessible(true);

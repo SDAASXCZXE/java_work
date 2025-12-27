@@ -1,3 +1,9 @@
+/*
+ * 文件：VisitorPanel.java
+ * 说明：访客管理面板（学生/管理员均可查看），包含访客登记、列表显示和删除功能。
+ * 注意：仅添加注释，不改动业务逻辑代码。
+ */
+
 package ui;
 
 import model.Visitor;
@@ -291,3 +297,4 @@ public class VisitorPanel extends JPanel {
         JOptionPane.showMessageDialog(this, "导出 Excel 功能正在集成...");
     }
 }
+

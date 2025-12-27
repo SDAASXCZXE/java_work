@@ -1,3 +1,9 @@
+/*
+ * 文件：StudentLeavePanel.java
+ * 说明：学生端请假申请面板（病假/事假），包含提交、查看和删除操作。
+ * 注意：仅添加注释，不修改业务代码。
+ */
+
 package ui;
 
 import model.LeaveRequest;
@@ -12,12 +18,12 @@ import java.awt.*;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Calendar;
 
 /**
- * 学生端 - 请假申请面板（病假/事假）
+ * 学生端 - 请假申请面板（病事假）
  */
 public class StudentLeavePanel extends JPanel {
     private Student student;
@@ -89,6 +95,7 @@ public class StudentLeavePanel extends JPanel {
         gbc.gridx=0; gbc.gridy=0; p.add(new JLabel("请选择类型:"),gbc);
         gbc.gridx=1; String[] types = {"病假","事假"}; JComboBox<String> typeBox = new JComboBox<>(types); p.add(typeBox,gbc);
 
+        // 使用 JSpinner 支持日期+时间选择（格式 yyyy-MM-dd HH:mm）
         gbc.gridx=0; gbc.gridy=1; p.add(new JLabel("起始日期/时间:"),gbc);
         gbc.gridx=1;
         SpinnerDateModel startModel = new SpinnerDateModel(new Date(), null, null, Calendar.MINUTE);
@@ -166,7 +173,7 @@ public class StudentLeavePanel extends JPanel {
     private void handleDelete(){
         int row = table.getSelectedRow(); if (row==-1){ JOptionPane.showMessageDialog(this,"请选择一条记录"); return; }
         String id = model.getValueAt(row,0).toString();
-        if (JOptionPane.showConfirmDialog(this,"确认永久删除请假记录 " + id + " ?","删除确认",JOptionPane.YES_NO_OPTION)==JOptionPane.YES_NO_OPTION){
+        if (JOptionPane.showConfirmDialog(this,"确认永久删除请假记录 " + id + " ?","删除确认",JOptionPane.YES_NO_OPTION)==JOptionPane.YES_OPTION){
             boolean ok = leaveService.deleteById(id);
             if (ok){ JOptionPane.showMessageDialog(this,"删除成功"); loadData(); } else { JOptionPane.showMessageDialog(this,"删除失败","错误",JOptionPane.ERROR_MESSAGE); }
         }

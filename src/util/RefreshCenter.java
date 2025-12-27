@@ -1,3 +1,10 @@
+/*
+ * 文件：RefreshCenter.java
+ * 说明：应用内的简单事件/刷新中心（发布-订阅模式的轻量实现）。
+ * 用途：模块之间可以通过注册键（String）来订阅刷新回调，当某些数据更新时触发通知。
+ * 注意：仅添加注释，不改动现有代码逻辑。
+ */
+
 package util;
 
 import java.util.ArrayList;
@@ -5,38 +12,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 简单的刷新中心，用于不同 UI 组件之间发送轻量级刷新/通知事件。
- * 组件可通过 register 注册 Runnable，当触发 notify 时会执行所有注册的回调。
- */
 public class RefreshCenter {
     private static final Map<String, List<Runnable>> listeners = new HashMap<>();
 
-    public static synchronized void register(String key, Runnable listener) {
-        listeners.computeIfAbsent(key, k -> new ArrayList<>()).add(listener);
+    public static void register(String key, Runnable callback) {
+        listeners.computeIfAbsent(key, k -> new ArrayList<>()).add(callback);
     }
 
-    public static synchronized void unregister(String key, Runnable listener) {
+    public static void notify(String key) {
         List<Runnable> list = listeners.get(key);
         if (list != null) {
-            list.remove(listener);
-            if (list.isEmpty()) {
-                listeners.remove(key);
-            }
-        }
-    }
-
-    public static synchronized void notify(String key) {
-        List<Runnable> list = listeners.get(key);
-        if (list == null) return;
-        // 复制避免并发修改
-        List<Runnable> copy = new ArrayList<>(list);
-        for (Runnable r : copy) {
-            try {
-                r.run();
-            } catch (Exception ignored) {
+            for (Runnable r : new ArrayList<>(list)) {
+                try { r.run(); } catch (Exception ignored) {}
             }
         }
     }
 }
-

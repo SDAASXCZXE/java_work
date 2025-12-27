@@ -1,3 +1,9 @@
+/*
+ * 文件：StudentRepairPanel.java
+ * 说明：学生端故障报修面板，允许学生提交报修、查看报修历史与删除申请（物理删除或逻辑删除以实现为准）。
+ * 注意：仅添加注释，不改动现有实现。
+ */
+
 package ui;
 
 import model.Repair;

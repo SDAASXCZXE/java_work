@@ -1,3 +1,9 @@
+/*
+ * 文件：StudentHolidayPanel.java
+ * 说明：学生端假期登记（离校/返校）面板，负责提交与展示假期登记记录。
+ * 注意：仅添加注释，保持原有实现。
+ */
+
 package ui;
 
 import model.Holiday;
@@ -17,8 +23,7 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * 学生端 - 请假申请面板
- * 功能：查看请假历史，提交请假申请，删除请假（物理删除）
+ * 学生端 - 假期登记面板
  */
 public class StudentHolidayPanel extends JPanel {
     private Student student;
@@ -122,9 +127,6 @@ public class StudentHolidayPanel extends JPanel {
             Date startDateObj = (Date) startSpinner.getValue();
             Date endDateObj = (Date) endSpinner.getValue();
             if (startDateObj == null || endDateObj == null) { JOptionPane.showMessageDialog(d,"起始/结束日期不能为空"); return; }
-
-            //LocalDate start = startDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
-           // LocalDate end = endDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
 
             LocalDate start = startDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
             LocalDate end = endDateObj.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();

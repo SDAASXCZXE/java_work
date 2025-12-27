@@ -1,3 +1,9 @@
+/*
+ * 文件：StudentPanel.java
+ * 说明：学生管理面板（管理员端），用于查看、添加、编辑学生记录等操作。
+ * 注意：仅插入注释，不更改业务逻辑。
+ */
+
 package ui;
 
 import model.Room;

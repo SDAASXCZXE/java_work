@@ -64,9 +64,6 @@ public class RoomPanel extends JPanel {
 
         add(createToolBar(), BorderLayout.NORTH);
         // 中间区域使用左右分割：左侧表格，右侧柱状图统计
-//        JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createTablePanel(), createChartPanel());
-//        split.setResizeWeight(0.68);
-//        add(split, BorderLayout.CENTER);
         splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, createTablePanel(), createChartPanel());
         splitPane.setResizeWeight(0.68);
         add(splitPane, BorderLayout.CENTER);

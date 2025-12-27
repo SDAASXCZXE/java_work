@@ -235,8 +235,4 @@ public class RegisterDialog extends JDialog {
                     "注册失败", JOptionPane.ERROR_MESSAGE);
         }
     }
-
-    public boolean isRegistered() {
-        return registered;
-    }
 }

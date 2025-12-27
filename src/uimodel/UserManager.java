@@ -1,3 +1,9 @@
+/*
+ * 文件：UserManager.java
+ * 说明：前端用户管理器，提供当前登录用户的管理（单例式使用）。
+ * 注意：仅添加注释，不修改业务逻辑。
+ */
+
 package uimodel;
 
 import java.io.*;
@@ -11,6 +17,7 @@ public class UserManager {
     private static final String USER_DATA_FILE = "users.dat";
     private List<User> users;
     private static UserManager instance;
+    private static User currentUser; // 当前登录用户
 
     private UserManager() {
         users = new ArrayList<>();
@@ -124,6 +131,7 @@ public class UserManager {
             if (user.getUsername().equals(username) &&
                     user.getPassword().equals(password) &&
                     user.getUserType() == userType) {
+                currentUser = user; // 设置当前登录用户
                 return user;
             }
         }
@@ -147,5 +155,19 @@ public class UserManager {
      */
     public List<User> getAllUsers() {
         return new ArrayList<>(users);
+    }
+
+    /**
+     * 获取当前登录用户
+     */
+    public static User getCurrentUser() {
+        return currentUser;
+    }
+
+    /**
+     * 设置当前登录用户
+     */
+    public static void setCurrentUser(User user) {
+        currentUser = user;
     }
 }

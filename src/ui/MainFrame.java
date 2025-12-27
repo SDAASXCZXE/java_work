@@ -134,8 +134,6 @@ public class MainFrame extends JFrame {
 
         logoutItem.addActionListener(e -> {
             dispose();
-            // 此处应调回 LoginFrame
-            // new LoginFrame().setVisible(true);
         });
         exitItem.addActionListener(e -> confirmAndExit());
 

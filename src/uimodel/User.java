@@ -1,3 +1,9 @@
+/*
+ * 文件：User.java
+ * 说明：前端用户实体，用于表示登录用户的信息（用户名、密码、用户类型、学号等）。
+ * 注意：仅添加注释，不改动类的字段或方法实现。
+ */
+
 package uimodel;
 
 import java.io.Serializable;
