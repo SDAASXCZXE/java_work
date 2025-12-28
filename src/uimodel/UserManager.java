@@ -8,6 +8,7 @@ package uimodel;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -76,6 +77,35 @@ public class UserManager {
 
         // 保存到文件
         return saveUsers();
+    }
+
+    /**
+     * 删除指定用户名的用户（用于回滚）
+     */
+    public synchronized boolean removeUserByUsername(String username) {
+        boolean removed = false;
+        Iterator<User> it = users.iterator();
+        while (it.hasNext()) {
+            User u = it.next();
+            if (u.getUsername().equals(username)) {
+                it.remove();
+                removed = true;
+                break;
+            }
+        }
+        if (removed) return saveUsers();
+        return false;
+    }
+
+    /**
+     * 检查指定学号是否已在用户列表中存在（学生账号）
+     */
+    public synchronized boolean existsStudentId(String studentId) {
+        if (studentId == null || studentId.trim().isEmpty()) return false;
+        for (User u : users) {
+            if (u.getUserType() == UserType.STUDENT && studentId.equals(u.getStudentId())) return true;
+        }
+        return false;
     }
 
     /**
@@ -171,3 +201,4 @@ public class UserManager {
         currentUser = user;
     }
 }
+

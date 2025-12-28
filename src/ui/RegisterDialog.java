@@ -1,14 +1,12 @@
 package ui;
 
-import model.Student;
-import service.StudentService;
-import service.impl.StudentServiceImpl;
 import uimodel.UserManager;
 import uimodel.UserType;
-import util.RefreshCenter;
 
 import javax.swing.*;
 import java.awt.*;
+import model.Student;
+import service.impl.StudentServiceImpl;
 import java.time.LocalDate;
 
 /**
@@ -197,36 +195,41 @@ public class RegisterDialog extends JDialog {
                 studentId, name, phone, email);
 
         if (success) {
-            // 如果是学生用户，尝试把学生信息写入数据库 Student 表，便于管理员页面直接看到新注册学生
+            // 如果是学生用户：尝试同时写入 student 表（成为学生档案的一部分）
             if (userType == UserType.STUDENT) {
-                StudentService studentService = new StudentServiceImpl();
+                Student s = new Student();
+                s.setSno(studentId);
+                s.setName(name);
+                s.setPhone(phone);
+                s.setInDate(LocalDate.now());
+                // 其他字段保留为空，由管理员在学生档案管理中补全
+
+                StudentServiceImpl svc = new StudentServiceImpl();
+                boolean dbOk = false;
                 try {
-                    // 如果学生表中不存在该学号，则插入；如果已存在则忽略（避免重复）
-                    if (!studentService.existsBySno(studentId)) {
-                        Student s = new Student();
-                        s.setSno(studentId);
-                        s.setName(name.isEmpty() ? username : name);
-                        s.setPhone(phone);
-                        s.setInDate(LocalDate.now());
-                        // 其他字段保持默认或空，管理员可以后续编辑
-                        studentService.addStudent(s);
-                    }
-                    // 通知管理面板刷新学生列表
-                    RefreshCenter.notify("students-updated");
-                } catch (Exception ex) {
-                    // 不阻止注册成功，但提示管理员信息添加失败
+                    dbOk = svc.addStudent(s);
+                } catch (Exception ex) { ex.printStackTrace(); }
+
+                if (!dbOk) {
+                    // 回滚前端用户，提示失败
+                    userManager.removeUserByUsername(username);
                     JOptionPane.showMessageDialog(this,
-                            "注册成功，但将学生信息保存到数据库时发生错误：" + ex.getMessage(),
-                            "部分成功", JOptionPane.WARNING_MESSAGE);
-                    registered = true;
-                    dispose();
+                            "注册失败：无法将学生信息写入数据库（学号可能已存在）。已回滚前端账号。",
+                            "注册失败", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
+
+                JOptionPane.showMessageDialog(this,
+                        "注册成功！已创建前端学生账号并写入学生档案（用户名：" + username + "，默认密码：123456）。",
+                        "注册成功（学生）", JOptionPane.INFORMATION_MESSAGE);
+                registered = true;
+                dispose();
+                // 通知其他组件（如果有刷新中心）
+                try { util.RefreshCenter.notify("students-updated"); } catch (Exception ignored) {}
+                return;
             }
 
-
-            JOptionPane.showMessageDialog(this, "注册成功！\n用户名: " + username +
-                            "\n用户类型: " + userType.getDescription(),
+            JOptionPane.showMessageDialog(this, "注册成功！\n用户名: " + username + "\n用户类型: " + userType.getDescription(),
                     "注册成功", JOptionPane.INFORMATION_MESSAGE);
             registered = true;
             dispose();

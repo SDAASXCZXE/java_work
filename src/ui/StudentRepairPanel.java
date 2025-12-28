@@ -215,4 +215,12 @@ public class StudentRepairPanel extends JPanel {
             default: return Repair.RepairType.OTHER;
         }
     }
+
+    // 外部调用：更新 student 对象并刷新数据
+    public void updateStudent(Student updated) {
+        if (updated == null) return;
+        this.student = updated;
+        loadData();
+    }
 }
+

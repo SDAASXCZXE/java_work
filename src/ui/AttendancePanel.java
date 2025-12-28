@@ -33,7 +33,8 @@ public class AttendancePanel extends JPanel {
     private JLabel lblDueCount, lblReturnedCount, lblLateCount, lblAbsentCount, lblLeaveCount, lblCurrentIn;
 
     private List<Attendance> currentDataList = new ArrayList<>();
-    private LocalDate statsDate = LocalDate.now();
+    // statsDate == null 表示实时模式（使用 LocalDate.now()）；否则使用指定的查询日期
+    private LocalDate statsDate = null;
     private javax.swing.Timer statsTimer;
 
     public AttendancePanel() {
@@ -175,7 +176,9 @@ public class AttendancePanel extends JPanel {
                 try {
                     currentDataList = get();
                     renderTable(currentDataList);
-                    updateStats(); // 刷新表格后同步刷新统计
+                    // 刷新为实时模式：清除任何之前的日期筛选
+                    statsDate = null;
+                    updateStats(); // 刷新表格后同步刷新统计（实时）
                 } catch (Exception e) { e.printStackTrace(); }
             }
         }.execute();
@@ -206,23 +209,19 @@ public class AttendancePanel extends JPanel {
      */
     private void updateStats() {
         List<Student> students = studentService.listStudents();
-        List<Attendance> records = attendanceService.listByDate(statsDate);
+        // 使用当前日期进行统计（实时）
+        LocalDate today = LocalDate.now();
+        List<Attendance> records = attendanceService.listByDate(today);
 
-        int due = students.size(); // 实时获取当前学生总数
-        int ret = 0, lat = 0, lea = 0;
+        // 计算基于当天最新记录的统计
+        StatsResult r = computeStatsForDate(students, records, today);
 
-        for (Attendance a : records) {
-            if (a.isEntry()) ret++;
-            if (a.getStatus() == Attendance.AttendanceStatus.LATE) lat++;
-            if (a.getStatus() == Attendance.AttendanceStatus.LEAVE) lea++;
-        }
-
-        lblDueCount.setText("应归人数: " + due);
-        lblReturnedCount.setText("已归人数: " + ret);
-        lblLateCount.setText("晚归人数: " + lat);
-        lblLeaveCount.setText("请假人数: " + lea);
-        lblAbsentCount.setText("未归人数: " + (due - ret - lea));
-        lblCurrentIn.setText("当前在楼: " + ret);
+        lblDueCount.setText("应归人数: " + r.totalStudents);
+        lblReturnedCount.setText("已归人数: " + r.returned);
+        lblLateCount.setText("晚归人数: " + r.late);
+        lblLeaveCount.setText("请假人数: " + r.leave);
+        lblAbsentCount.setText("未归人数: " + r.absent);
+        lblCurrentIn.setText("当前在楼: " + r.currentIn);
     }
 
     /**
@@ -230,19 +229,23 @@ public class AttendancePanel extends JPanel {
      */
     private void updateStatsFromList(List<Attendance> records) {
         List<Student> students = studentService.listStudents();
-        int due = students.size();
-        int ret = 0, lat = 0, lea = 0;
-        for (Attendance a : records) {
-            if (a.isEntry()) ret++;
-            if (a.getStatus() == Attendance.AttendanceStatus.LATE) lat++;
-            if (a.getStatus() == Attendance.AttendanceStatus.LEAVE) lea++;
+        LocalDate dateToUse = statsDate == null ? LocalDate.now() : statsDate;
+        // 只使用目标日期的记录进行统计（records 可能是跨日期的集合，如按学号查询）
+        List<Attendance> filtered = new ArrayList<>();
+        if (records != null) {
+            for (Attendance a : records) {
+                if (a == null) continue;
+                if (a.getAttendanceDate() != null && a.getAttendanceDate().equals(dateToUse)) filtered.add(a);
+            }
         }
-        lblDueCount.setText("应归人数: " + due);
-        lblReturnedCount.setText("已归人数: " + ret);
-        lblLateCount.setText("晚归人数: " + lat);
-        lblLeaveCount.setText("请假人数: " + lea);
-        lblAbsentCount.setText("未归人数: " + (due - ret - lea));
-        lblCurrentIn.setText("当前在楼: " + ret);
+        // 计算统计结果（若查询的是今天，则使用实时判断晚归；若是过去日期则以记录中的状态为准）
+        StatsResult r = computeStatsForDate(students, filtered, dateToUse);
+        lblDueCount.setText("应归人数: " + r.totalStudents);
+        lblReturnedCount.setText("已归人数: " + r.returned);
+        lblLateCount.setText("晚归人数: " + r.late);
+        lblLeaveCount.setText("请假人数: " + r.leave);
+        lblAbsentCount.setText("未归人数: " + r.absent);
+        lblCurrentIn.setText("当前在楼: " + r.currentIn);
     }
 
     /**
@@ -260,7 +263,8 @@ public class AttendancePanel extends JPanel {
                     currentDataList = get();
                     renderTable(currentDataList);
                     updateStatsFromList(currentDataList);
-                    statsDate = date; // 更新全局统计日期
+                    // 设置为按指定日期显示统计（非实时）
+                    statsDate = date;
                 } catch (Exception e) { e.printStackTrace(); }
             }
         }.execute();
@@ -450,5 +454,99 @@ public class AttendancePanel extends JPanel {
             }
         });
         attendanceTable.setRowSorter(sorter);
+    }
+
+    // ---------- 新增：统计计算方法 ----------
+    private static class StatsResult {
+        int totalStudents;
+        int returned; // 已归（今日最后记录为 IN）
+        int late;     // 晚归（今日最后 IN 且时间晚于宵禁时间）
+        int leave;    // 请假
+        int absent;   // 未归（没有记录或最后为 OUT）
+        int currentIn; // 当前在楼（与 returned 相同语义）
+    }
+
+    /**
+     * 计算指定日期的统计数据：按每个学生当天的最新记录判断状态。
+     * 若 date 为今天，则会使用当前时间作为实时参考；若为过去日期，则以记录中的状态为准。
+     */
+    private StatsResult computeStatsForDate(List<Student> students, List<Attendance> records, LocalDate date) {
+        StatsResult res = new StatsResult();
+        res.totalStudents = students == null ? 0 : students.size();
+        if (res.totalStudents == 0) return res;
+
+        // 宵禁时间：22:30
+        LocalTime curfew = LocalTime.of(22, 30);
+        boolean isToday = LocalDate.now().equals(date);
+        LocalTime nowTime = LocalTime.now();
+
+        // 建立 studentId -> 最新记录 映射（按 attendanceTime 比较）
+        Map<String, Attendance> latestMap = new HashMap<>();
+        if (records != null) {
+            for (Attendance a : records) {
+                if (a == null || a.getStudentId() == null) continue;
+                String sid = a.getStudentId();
+                Attendance prev = latestMap.get(sid);
+                if (prev == null) latestMap.put(sid, a);
+                else {
+                    // 比较时间，取时间更晚的那条记录
+                    LocalTime t1 = prev.getAttendanceTime();
+                    LocalTime t2 = a.getAttendanceTime();
+                    if (t1 == null && t2 != null) latestMap.put(sid, a);
+                    else if (t1 != null && t2 != null && t2.isAfter(t1)) latestMap.put(sid, a);
+                }
+            }
+        }
+
+        int returned = 0, late = 0, leave = 0, absent = 0;
+
+        for (Student s : students) {
+            if (s == null || s.getSno() == null) continue;
+            String sid = s.getSno();
+            Attendance la = latestMap.get(sid);
+
+            if (la == null) {
+                // 无记录:
+                if (isToday) {
+                    // 若还未到宵禁时间，不计入未归/晚归；否则视为未归
+                    if (nowTime.isAfter(curfew)) absent++;
+                } else {
+                    // 过去日期且无记录 -> 未归
+                    absent++;
+                }
+                continue;
+            }
+
+            // 有记录且为请假
+            if (la.getStatus() == Attendance.AttendanceStatus.LEAVE) {
+                leave++;
+                continue;
+            }
+
+            // 若最后记录方向为 IN，则视为已归（并判断是否晚归）
+            if (la.getDirection() == Attendance.AttendanceDirection.IN) {
+                returned++;
+                // 晚归判断：优先使用记录中标记的状态；否则当日且入寝时间晚于宵禁则认为晚归
+                if (la.getStatus() == Attendance.AttendanceStatus.LATE) {
+                    late++;
+                } else if (isToday && la.getAttendanceTime() != null && la.getAttendanceTime().isAfter(curfew)) {
+                    late++;
+                }
+            } else {
+                // 最后记录为 OUT：当天且未到宵禁，不算未归；超过宵禁或过去日期则视为未归
+                if (isToday) {
+                    if (nowTime.isAfter(curfew)) absent++;
+                } else {
+                    absent++;
+                }
+            }
+        }
+
+        res.returned = returned;
+        res.late = late;
+        res.leave = leave;
+        res.absent = Math.max(0, absent);
+        res.currentIn = returned; // 当前在楼与返回数一致（以最新 IN 记录为准）
+        return res;
     }
 }
