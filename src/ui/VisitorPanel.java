@@ -67,7 +67,7 @@ public class VisitorPanel extends JPanel {
     }
 
     private JPanel createTablePanel() {
-        String[] columns = {"ID", "姓名", "来访时间", "状态", "宿舍", "被访学生", "事由", "证件类型", "证件号码", "电话", "备注"};
+        String[] columns = {"ID", "姓名", "来访时间", "离开时间", "宿舍", "被访学生", "事由", "证件类型", "证件号码", "电话", "备注"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
