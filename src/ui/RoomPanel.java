@@ -148,13 +148,6 @@ public class RoomPanel extends JPanel {
         searchButton.addActionListener(e -> searchRooms());
         toolBar.add(searchButton);
 
-        JButton resetBtn = new JButton("重置");
-        resetBtn.addActionListener(e -> {
-            searchField.setText("");
-            roomTable.clearSelection();
-            roomTable.setRowSorter(null);
-        });
-        toolBar.add(resetBtn);
 
         return toolBar;
     }
