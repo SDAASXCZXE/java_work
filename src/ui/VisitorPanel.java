@@ -3,13 +3,10 @@
  * 说明：访客管理面板（学生/管理员均可查看），包含访客登记、列表显示和删除功能。
  * 注意：仅添加注释，不改动业务逻辑代码。
  */
-
 package ui;
-
 import model.Visitor;
 import service.VisitorService;
 import service.impl.VisitorServiceImpl;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -20,7 +17,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
-
 /**
  * 访客记录管理面板 - 完整功能版
  */
@@ -49,7 +45,6 @@ public class VisitorPanel extends JPanel {
         add(createTablePanel(), BorderLayout.CENTER);
         add(createStatsPanel(), BorderLayout.SOUTH);
     }
-
     private JPanel createToolBar() {
         JPanel toolBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         toolBar.setBorder(BorderFactory.createTitledBorder("访客记录管理"));
@@ -63,18 +58,16 @@ public class VisitorPanel extends JPanel {
             button.addActionListener(this::handleButtonClick);
             toolBar.add(button);
         }
-
         toolBar.add(Box.createHorizontalStrut(20));
         toolBar.add(new JLabel("快速筛选:"));
         JComboBox<String> filterCombo = new JComboBox<>(new String[]{"全部", "今日", "本周", "本月"});
         filterCombo.addActionListener(e -> filterRecords((String) filterCombo.getSelectedItem()));
         toolBar.add(filterCombo);
-
         return toolBar;
     }
 
     private JPanel createTablePanel() {
-        String[] columns = {"ID", "姓名", "来访时间", "离开时间", "宿舍", "被访学生", "事由", "证件类型", "证件号码", "电话", "备注"};
+        String[] columns = {"ID", "姓名", "来访时间", "状态", "宿舍", "被访学生", "事由", "证件类型", "证件号码", "电话", "备注"};
         tableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
